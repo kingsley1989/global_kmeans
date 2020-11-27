@@ -4,8 +4,9 @@ using RDatasets, DataFrames, CSV
 using Clustering
 using Random
 using Plots
+using opt_functions
 
-export data_process, cluster_eval, plotResult
+export data_process, cluster_eval, plotResult, nestedEval
 
 # function for data pre-processing, here missingchar will be a single character
 function data_preprocess(dataname, datapackage = "datasets", path=nothing, missingchar=nothing)
