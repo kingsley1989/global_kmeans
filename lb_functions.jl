@@ -131,6 +131,23 @@ end
 
 ############## Lower bound calculation with adaptive sub-grouping ##############
 
+#import Base: length
+
+function unique_inverse(A::AbstractArray)
+    out = Array{eltype(A)}(undef, 0)
+    out_idx = Array{Vector{Int}}(undef, 0)
+    seen = Dict{eltype(A), Int}()
+    for (idx, x) in enumerate(A)
+        if !in(x, keys(seen))
+            seen[x] = length(seen) + 1
+            push!(out, x)
+            push!(out_idx, Int[])
+        end
+        push!(out_idx[seen[x]], idx)
+    end
+    out, out_idx
+end
+
 # this is the function for grouping a cluster, and can avoid failure when a sub-cluster has size < ngroups
 function strGrp_nofill(assign, ngroups)
     l, c = unique_inverse(assign) # get label and cluster index
