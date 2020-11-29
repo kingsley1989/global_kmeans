@@ -36,9 +36,9 @@ t_km = @elapsed rlt_km = kmeans(data, k)
 nmi_km, vi_km, ari_km = cluster_eval(rlt_km.assignments, label)
 
 # plot branch and bound calculation process
-plotResult(calcInfo)
+plotResult(calcInfo, "seeds")
 #plotResult(calcInfo_LD)
-plotResult(calcInfo_adp)
+plotResult(calcInfo_adp, "seeds")
 #plotResult(calcInfo_adp_LD)
 
 

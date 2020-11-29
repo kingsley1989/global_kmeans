@@ -75,7 +75,7 @@ end
 
 
 # function for ploting result graphs
-function plotResult(result)
+function plotResult(result, dataname)
     initLB = result[2][4]-50
     initUB = result[2][5]+50
     result[1][4:5] = [initLB initUB] # here to draw clearly, put +/- 50 for inital LB/UB
@@ -83,7 +83,7 @@ function plotResult(result)
     plt = Plots.plot(pRlt[1,:], pRlt[4:5,:]', title="Lower and Upper Bound for Each Iterations", 
         label=["Lower Bound" "Upper Bound"], lw=2)
     gap = round(result[end][end], digits=5)
-    savefig(plt, "ub_lb_crv$gap.png")
+    savefig(plt, "$dataname-ub_lb_crv$gap.png")
 end
 
 
