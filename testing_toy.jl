@@ -15,7 +15,7 @@ using data_process, bb_functions, opt_functions
 #############################################################
 
 Random.seed!(0)
-clst_n = 50 # number of points in a cluster 
+clst_n = 20 # number of points in a cluster 
 k = 3
 data = Array{Float64}(undef, 2, clst_n*k) # initial data array (clst_n*k)*2 
 label = Array{Float64}(undef, clst_n*k) # label is empty vector 1*(clst_n*k)
