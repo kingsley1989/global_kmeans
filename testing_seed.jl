@@ -2,6 +2,7 @@ using RDatasets, DataFrames, CSV
 using Random, Distributions
 using Plots#, StatsPlots
 using MLDataUtils, Clustering
+using JLD
 
 # load functions for branch&bound and data preprocess from self-created module
 if !("." in LOAD_PATH)
@@ -16,8 +17,7 @@ using data_process, bb_functions, opt_functions
 #############################################################
 
 # real world dataset testing
-data, label = data_preprocess("iris") # read iris data from datasets package
-
+data, label = data_preprocess("seeds_dataset.txt", nothing, joinpath(pwd(), "..\\..\\data\\")) # read seed data
 label = vec(label)
 k = length(unique(label))
 Random.seed!(123)
@@ -53,4 +53,4 @@ timeGapRlt = [[t t_LD t_adp t_adp_LD]; [calcInfo[end][end] calcInfo_LD[end][end]
 
 evalRlt = [eval_orig[:,end] eval_LD[:,end] eval_adp[:,end] eval_adp_LD[:,end] [nmi_km; vi_km; ari_km; rlt_km.totalcost]]
 
-save("testing_iris.jld", "data", data,  "timeGapRlt", timeGapRlt, "evalRlt", evalRlt)
+save("testing_seed.jld", "data", data,  "timeGapRlt", timeGapRlt, "evalRlt", evalRlt)

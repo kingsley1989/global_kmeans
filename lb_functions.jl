@@ -167,6 +167,7 @@ function strGrp_nofill(assign, ngroups)
 end
 
 # grouping function that stratified on assign and select data evenly by applying kmeans clustering on each cluster
+# the sampling will have a bug in kmeans grouping with sample function when the smallest cluster only has one data point
 function kmeans_group(X, assign, ngroups)
     clst_label, clst_idx = unique_inverse(assign)
     # number of sub-cluster for each cluster, k_sub <= clst_size/ngroups, which is length(clst_idx[i])/ngroups

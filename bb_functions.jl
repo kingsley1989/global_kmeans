@@ -20,7 +20,7 @@ end
 Node() = Node(nothing, nothing, -1, -1e10, nothing)
 
 
-maxiter = 1000
+maxiter = 100
 tol = 1e-6
 mingap = 0.01
 

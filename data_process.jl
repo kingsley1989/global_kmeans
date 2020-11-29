@@ -6,17 +6,17 @@ using Random
 using Plots
 using opt_functions
 
-export data_process, cluster_eval, plotResult, nestedEval
+export data_preprocess, cluster_eval, plotResult, nestedEval
 
 # function for data pre-processing, here missingchar will be a single character
-function data_preprocess(dataname, datapackage = "datasets", path=nothing, missingchar=nothing)
+function data_preprocess(dataname, datapackage = "datasets", path=nothing, missingchar=nothing, header=false)
     # read data
     if path === nothing # read data from r-package datasets
         data = dataset(datapackage, dataname)
     elseif missingchar === nothing
-        data = CSV.read(joinpath(path, dataname), header = false)
+        data = CSV.read(joinpath(path, dataname), DataFrame, header = header)
     else
-        data = CSV.read(joinpath(path, dataname), header = false, missingstring = missingchar)
+        data = CSV.read(joinpath(path, dataname), DataFrame, header = header, missingstring = missingchar)
         data = dropmissing(data)
     end
     # process to separate features and label
@@ -30,7 +30,8 @@ function data_preprocess(dataname, datapackage = "datasets", path=nothing, missi
         end
         v = Int.(lbl) 
     end
-    return convert(Matrix, data[:,1:(ncol(data)-1)])', v # return data in transpose for optimization process
+    # return data(deleting the first index column) in transpose for optimization process 
+    return convert(Matrix, data[:,2:(ncol(data)-1)])', v 
 end
 
 # function to update the centers during kmeans, 
@@ -75,10 +76,14 @@ end
 
 # function for ploting result graphs
 function plotResult(result)
-    result[1][4:5] = [50 150] # here to draw clearly, put +/- 50 for inital LB/UB
+    initLB = result[2][4]-50
+    initUB = result[2][5]+50
+    result[1][4:5] = [initLB initUB] # here to draw clearly, put +/- 50 for inital LB/UB
     pRlt = hcat(deleteat!(result, length(result))...) # 6*number of iterations
-    Plots.plot(pRlt[1,:], pRlt[4:5,:]', title="Lower and Upper Bound for Each Iterations", 
+    plt = Plots.plot(pRlt[1,:], pRlt[4:5,:]', title="Lower and Upper Bound for Each Iterations", 
         label=["Lower Bound" "Upper Bound"], lw=2)
+    gap = round(result[end][end], digits=5)
+    savefig(plt, "ub_lb_crv$gap.png")
 end
 
 
@@ -141,33 +146,41 @@ function cluster_eval(z1::Array{Int64,1}, z2::Array{Int64,1})
     #adjusted rand index
     ari = randindex(z1,z2)
     println("ari: ", ari[1])
+
+    return nmi, vi, ari
 end
 
 
-function nestedEval(X, label, centers, objv)
+function nestedEval(X, label, centers, objv, result) # result is that from kmeans
     d, k = size(centers)
     # objective cost for real label
     objv_o, ~ = obj_assign(update_centers(X, label, k), X) 
-    # kmeans results for comparison
-    result = kmeans(X, k)
     # objective cost for bb result
     objv_f, assign_bb = obj_assign(centers, X)
 
     # mutual evaluation between kmeans and opt_km
     println("kmeans: ", result.assignments)
     println("opt_km: ", assign_bb)
-    cluster_eval(result.assignments, assign_bb)
+    nmi_kb, vi_kb, ari_kb = cluster_eval(result.assignments, assign_bb)
 
     # evaluation with ground truth
     println("kmeans evaluation: ")
-    cluster_eval(result.assignments, label)
+    nmi_km, vi_km, ari_km = cluster_eval(result.assignments, label)
     println("opt_km evaluation: ")
-    cluster_eval(assign_bb, label)
+    nmi_bb, vi_bb, ari_bb = cluster_eval(assign_bb, label)
 
     # comparison on final cost
     println("km_cost: ", result.totalcost)
     println("bb_cost: ", objv, ", objective cost: ",objv_f)
     println("real_cost: ", objv_o)
+    
+    # last row: real cost, bb cost
+    nestedEvalRlt = [nmi_kb nmi_bb; 
+                vi_kb vi_bb; 
+                ari_kb ari_bb; 
+                objv_o objv]
+                
+    return nestedEvalRlt
 end
 
 
