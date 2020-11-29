@@ -2,6 +2,7 @@ using RDatasets, DataFrames, CSV
 using Random, Distributions
 using Plots#, StatsPlots
 using MLDataUtils, Clustering
+using JLD
 
 # load functions for branch&bound and data preprocess from self-created module
 if !("." in LOAD_PATH)
