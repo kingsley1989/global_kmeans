@@ -33,7 +33,8 @@ label = convertlabel(1:k, vec(label))
 
 # plot the original data
 pyplot()
-scatter(data[1,:], data[2,:], markercolor=label, legend = false, title = "Scatter Plot of Synthetic Dataset")
+sctrplot = scatter(data[1,:], data[2,:], markercolor=label, legend = false, title = "Scatter Plot of Synthetic Dataset")
+savefig(sctrplot, "toy_$k_$clst_n.png")
 
 # local optimization for kmeans clustering
 centers_l, assign_l, objv_l = local_OPT(data, k)
