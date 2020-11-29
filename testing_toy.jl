@@ -34,7 +34,7 @@ label = convertlabel(1:k, vec(label))
 # plot the original data
 pyplot()
 sctrplot = scatter(data[1,:], data[2,:], markercolor=label, legend = false, title = "Scatter Plot of Synthetic Dataset")
-savefig(sctrplot, string("toy_",k, "_", clst_n, ".png"))
+savefig(sctrplot, "toy_$k-$clst_n.png")# string("toy_",k, "_", clst_n, ".png")
 
 # local optimization for kmeans clustering
 centers_l, assign_l, objv_l = local_OPT(data, k)
@@ -49,9 +49,9 @@ t_km = @elapsed rlt_km = kmeans(data, k)
 nmi_km, vi_km, ari_km = cluster_eval(rlt_km.assignments, label)
 
 # plot branch and bound calculation process
-plotResult(calcInfo, "toy")
+plotResult(calcInfo, "toy_$k-$clst_n")
 #plotResult(calcInfo_LD)
-plotResult(calcInfo_adp, "toy")
+plotResult(calcInfo_adp, "toy_$k-$clst_n")
 #plotResult(calcInfo_adp_LD)
 
 
@@ -66,4 +66,4 @@ timeGapRlt = [[t t_LD t_adp t_adp_LD]; [calcInfo[end][end] calcInfo_LD[end][end]
 
 evalRlt = [eval_orig[:,end] eval_LD[:,end] eval_adp[:,end] eval_adp_LD[:,end] [nmi_km; vi_km; ari_km; rlt_km.totalcost]]
 
-save("testing_toy.jld", "data", data,  "timeGapRlt", timeGapRlt, "evalRlt", evalRlt)
+save("testing_toy_$k-$clst_n.jld", "data", data,  "timeGapRlt", timeGapRlt, "evalRlt", evalRlt)
