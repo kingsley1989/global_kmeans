@@ -17,7 +17,8 @@ using data_process, bb_functions, opt_functions
 #############################################################
 
 # real world dataset testing
-data, label = data_preprocess("seeds_dataset.txt", nothing, joinpath(pwd(), "..\\..\\data\\")) # read seed data
+data, label = data_preprocess("seeds_dataset.txt", nothing, joinpath(pwd(), "../../data/")) # read data in Mac
+# data, label = data_preprocess("seeds_dataset.txt", nothing, joinpath(pwd(), "..\\..\\data\\")) # read data in Windows
 label = vec(label)
 k = length(unique(label))
 Random.seed!(123)
