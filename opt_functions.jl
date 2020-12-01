@@ -113,7 +113,7 @@ function global_OPT3(X, k, lower=nothing, upper=nothing, mute=false)
     @objective(m, Min, sum(costs[j] for j in 1:n));
     optimize!(m);
     centers = value.(centers)
-    objv, assign = obj_assign(centers, X)
+    objv, assign = obj_assign(centers, X) # here the objv should be a lower bound of CPLEX
     return centers, assign, objv
 end
 

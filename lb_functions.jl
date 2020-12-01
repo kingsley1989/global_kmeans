@@ -80,8 +80,8 @@ function LD(X, d, k, ngroups, groups, qUB, lower=nothing, upper=nothing)
     end
 
     # start LB caculation with lambda updating process
-    maxLB = -Inf
-    while LB > maxLB
+    maxLB = -99999999999
+    while (qUB-maxLB)/min(abs(maxLB)) >= 0.01
         maxLB = LB
         # here lambda input is a vectors but output is the matrix
         lambda = updateLambda_subgrad(vec(lambda), qUB, LB, centers_gp) 
