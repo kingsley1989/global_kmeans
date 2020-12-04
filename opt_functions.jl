@@ -165,7 +165,7 @@ function global_OPT3_LD(X, k, lambda, lower=nothing, upper=nothing, mute=false)
                 sum((lambda[:,i,2]-lambda[:,i,1])'*centers[:,i] for i in 1:k));
     optimize!(m);
     centers = value.(centers)
-    objv, assign = obj_assign(centers, X)
+    objv, assign = obj_assign(centers, X) # we can directly use the ub of cplex result
     return centers, assign, objv
 end
 

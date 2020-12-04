@@ -66,6 +66,7 @@ function LD(X, d, k, ngroups, groups, qUB, lower=nothing, upper=nothing)
     lambda = zeros(d, k, ngroups) # d*k*g initialize lambda with 0
     # inital calculation for LB with zero lambda
     LB = 0
+    #=
     centers_gp = zeros(d, k, ngroups) # initial var to save centers for each group
     for i = 1:ngroups
         if i == ngroups
@@ -78,13 +79,15 @@ function LD(X, d, k, ngroups, groups, qUB, lower=nothing, upper=nothing)
         centers_gp[:,:,i] = centers
         LB += objv;
     end
-
+    # update lambda first
+    lambda = updateLambda_subgrad(vec(lambda), qUB, LB, centers_gp) 
+    =#
     # start LB caculation with lambda updating process
-    maxLB = -99999999999
-    while (qUB-maxLB)/min(abs(maxLB)) >= 0.01
+    maxLB = -Inf
+    i = 0
+    while (qUB-maxLB)/min(abs(maxLB)) >= 0.01 & i<=100 # LB >= maxLB # norm(lambda, 2) > 0.1 #
         maxLB = LB
-        # here lambda input is a vectors but output is the matrix
-        lambda = updateLambda_subgrad(vec(lambda), qUB, LB, centers_gp) 
+        # here lambda input is a vectors but output is the matrix    
         LB = 0
         centers_gp = zeros(d, k, ngroups) # initial var to save centers for each group
         for i = 1:ngroups
@@ -98,7 +101,10 @@ function LD(X, d, k, ngroups, groups, qUB, lower=nothing, upper=nothing)
             centers_gp[:,:,i] = centers
             LB += objv;
         end
+        # update lambda before the new loop
+        lambda = updateLambda_subgrad(vec(lambda), qUB, LB, centers_gp) 
         println(LB)
+        i += 1
     end
 
     return maxLB
