@@ -44,7 +44,7 @@ end
 
 # function for updating the largrange multiplier Lambda
 # centers is the set of all centers achieved from each global_OPT3
-function updateLambda_subgrad(lambda_vec, qUB, LB, centers_gp)
+function updateLambda_subgrad(lambda_vec, qUB, LB, centers_gp, alpha=1)
     d, k, ngroups = size(centers_gp)
     sk = zeros(d, k, ngroups)
     for i in 1:ngroups
@@ -54,8 +54,8 @@ function updateLambda_subgrad(lambda_vec, qUB, LB, centers_gp)
             sk[:,:,i] = centers_gp[:,:,i]-centers_gp[:,:,i+1]
         end
     end
+    #println(sk)
     sk_vec = vec(sk)
-    alpha = 1
     step = alpha*(qUB-LB)/(norm(sk_vec)^2)*sk_vec # norm may change to sum of squared sk
     lambda_vec = lambda_vec + step
     return reshape(lambda_vec, d, k, ngroups) # change back with d*k*g
@@ -66,27 +66,18 @@ function LD(X, d, k, ngroups, groups, qUB, lower=nothing, upper=nothing)
     lambda = zeros(d, k, ngroups) # d*k*g initialize lambda with 0
     # inital calculation for LB with zero lambda
     LB = 0
-    #=
-    centers_gp = zeros(d, k, ngroups) # initial var to save centers for each group
-    for i = 1:ngroups
-        if i == ngroups
-            centers, assign, objv = opt_functions.global_OPT3_LD(X[:,groups[i]], k, 
-                lambda[:,:,[i, 1]], lower, upper, true); # here when i=ng, i+1 should be 1
-        else
-            centers, assign, objv = opt_functions.global_OPT3_LD(X[:,groups[i]], k, 
-                lambda[:,:,i:(i+1)], lower, upper, true); # here when i=ng, i+1 should be 1
-        end
-        centers_gp[:,:,i] = centers
-        LB += objv;
-    end
-    # update lambda first
-    lambda = updateLambda_subgrad(vec(lambda), qUB, LB, centers_gp) 
-    =#
     # start LB caculation with lambda updating process
     maxLB = -Inf
     i = 0
-    while (qUB-maxLB)/min(abs(maxLB)) >= 0.01 & i<=100 # LB >= maxLB # norm(lambda, 2) > 0.1 #
+    alpha = 1
+    while  LB >= maxLB # norm(lambda, Inf) > 0.1 # (qUB-maxLB)/min(abs(qUB)) >= 0.01 # 
+        if LB > qUB
+            maxLB = LB
+            break
+        end
         maxLB = LB
+        #println("============lambda============")
+        #println(lambda)
         # here lambda input is a vectors but output is the matrix    
         LB = 0
         centers_gp = zeros(d, k, ngroups) # initial var to save centers for each group
@@ -102,7 +93,61 @@ function LD(X, d, k, ngroups, groups, qUB, lower=nothing, upper=nothing)
             LB += objv;
         end
         # update lambda before the new loop
-        lambda = updateLambda_subgrad(vec(lambda), qUB, LB, centers_gp) 
+        lambda = updateLambda_subgrad(vec(lambda), qUB, LB, centers_gp, alpha) 
+        alpha = 0.6*alpha
+        println(LB)
+        i += 1
+    end
+
+    return maxLB
+end
+
+
+function updateLambda_subgrad_2(lambda_vec, qUB, LB, centers_gp, alpha = 1)
+    d, k, ngroups = size(centers_gp)
+    sk = zeros(d, k, ngroups-1) # step size will be d*k*(ngroups-1)
+    for i in 1:(ngroups-1)
+        sk[:,:,i] = centers_gp[:,:,i]-centers_gp[:,:,i+1]
+    end
+    #println(sk)
+    println("alpha:", alpha)
+    sk_vec = vec(sk)
+    step = alpha*(qUB-LB)/(norm(sk_vec)^2)*sk_vec # norm may change to sum of squared sk
+    lambda_vec = lambda_vec + step
+    return reshape(lambda_vec, d, k, ngroups-1) # change back with d*k*(g-1)
+end
+
+function LD_2(X, d, k, ngroups, groups, qUB, lower=nothing, upper=nothing)
+    lambda = zeros(d, k, ngroups+1) # d*k*(g+1) initialize lambda with 0
+    # inital calculation for LB with zero lambda
+    LB = 0
+    # start LB caculation with lambda updating process
+    maxLB = -Inf
+    i = 0
+    alpha = 1
+    while  LB >= maxLB # norm(lambda, Inf) > 0.1 # (qUB-maxLB)/min(abs(qUB)) >= 0.01 # 
+        # if i >=100
+        #     break
+        # end
+        maxLB = LB
+        println("============lambda============")
+        println(lambda)
+        # here lambda input is a vectors but output is the matrix    
+        LB = 0
+        centers_gp = zeros(d, k, ngroups) # initial var to save centers for each group
+        
+        # lambda dimensions: d*k*(ngroups+1) [0-ngroups]
+        # lambda[:,:,1] --> lambda_0, lambda[:,:,ng+1] --> lambda_ng, both are 0 here.
+        for i = 1:ngroups
+            centers, assign, objv = opt_functions.global_OPT3_LD(X[:,groups[i]], k, 
+                lambda[:,:,i:(i+1)], lower, upper, true);
+            centers_gp[:,:,i] = centers; # i for groups and centers are corresponding to i+1 of lambda
+            LB += objv;
+        end
+        # update lambda before the new loop
+        # here we only need to update lambda[:,:,2:ngroups] (actaully is 1:(ngroups-1))
+        lambda[:,:,2:ngroups] = updateLambda_subgrad_2(vec(lambda[:,:,2:ngroups]), qUB, LB, centers_gp, alpha)
+        alpha = 0.5*alpha 
         println(LB)
         i += 1
     end
