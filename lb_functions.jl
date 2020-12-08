@@ -126,9 +126,10 @@ function LD_2(X, d, k, ngroups, groups, qUB, lower=nothing, upper=nothing)
     i = 0
     alpha = 1
     while  LB >= maxLB # norm(lambda, Inf) > 0.1 # (qUB-maxLB)/min(abs(qUB)) >= 0.01 # 
-        # if i >=100
-        #     break
-        # end
+        if LB > qUB
+            maxLB = LB
+            break
+        end
         maxLB = LB
         println("============lambda============")
         println(lambda)
@@ -175,7 +176,7 @@ function getLowerBound_LD(X, k, centers, lower=nothing, upper=nothing)
     end
 
     # largrangean decomposition
-    LB = LD(X, d, k, ngroups, groups, obj_ub, lower, upper)
+    LB = LD_2(X, d, k, ngroups, groups, obj_ub, lower, upper)
     
     return LB
 end
@@ -275,7 +276,7 @@ function getLowerBound_adptGp_LD(X, k, centers, parent_groups=nothing, lower=not
     LB = LD(X, d, k, ngroups, groups, obj_ub, lower, upper)
 
     # check if LB with new grouping lower than the LB of parent node
-    if LB < glbLB # if LB is smaller, than adopt the parent grouping
+    if LB < glbLB | LB > obj_ub # if LB is smaller, than adopt the parent grouping
         groups = parent_groups
         # calculate the lower bound with largrangean decomposition
         LB = LD(X, d, k, ngroups, groups, obj_ub, lower, upper)
