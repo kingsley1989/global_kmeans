@@ -5,8 +5,8 @@ using MLDataUtils, Clustering
 using JLD
 
 # load functions for branch&bound and data preprocess from self-created module
-if !("." in LOAD_PATH)
-    push!(LOAD_PATH, ".")
+if !("src/" in LOAD_PATH)
+    push!(LOAD_PATH, "src/")
 end
 using data_process, bb_functions, opt_functions
 
@@ -17,7 +17,8 @@ using data_process, bb_functions, opt_functions
 #############################################################
 
 # real world dataset testing
-data, label = data_preprocess("Hemicellulose.csv", nothing, joinpath(pwd(), "..\\..\\data\\")) # read seed data
+data, label = data_preprocess("iris") # read iris data from datasets package
+
 label = vec(label)
 k = length(unique(label))
 Random.seed!(123)
@@ -36,9 +37,9 @@ t_km = @elapsed rlt_km = kmeans(data, k)
 nmi_km, vi_km, ari_km = cluster_eval(rlt_km.assignments, label)
 
 # plot branch and bound calculation process
-plotResult(calcInfo, "hemi")
+plotResult(calcInfo, "iris")
 #plotResult(calcInfo_LD)
-plotResult(calcInfo_adp, "hemi")
+plotResult(calcInfo_adp, "iris")
 #plotResult(calcInfo_adp_LD)
 
 
@@ -53,4 +54,4 @@ timeGapRlt = [[t t_LD t_adp t_adp_LD]; [calcInfo[end][end] calcInfo_LD[end][end]
 
 evalRlt = [eval_orig[:,end] eval_LD[:,end] eval_adp[:,end] eval_adp_LD[:,end] [nmi_km; vi_km; ari_km; rlt_km.totalcost]]
 
-save("testing_hemi.jld", "data", data,  "timeGapRlt", timeGapRlt, "evalRlt", evalRlt)
+save("testing_iris.jld", "data", data,  "timeGapRlt", timeGapRlt, "evalRlt", evalRlt)

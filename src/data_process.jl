@@ -3,10 +3,11 @@ module data_process
 using RDatasets, DataFrames, CSV
 using Clustering
 using Random
+using LinearAlgebra
 using Plots
 using opt_functions
 
-export data_preprocess, cluster_eval, plotResult, nestedEval
+export data_preprocess, cluster_eval, plotResult, nestedEval, sig_gen
 
 # function for data pre-processing, here missingchar will be a single character
 function data_preprocess(dataname, datapackage = "datasets", path=nothing, missingchar=nothing, header=false)
@@ -34,6 +35,14 @@ function data_preprocess(dataname, datapackage = "datasets", path=nothing, missi
     # return convert(Matrix, data[:,2:(ncol(data)-1)])', v # seeds
     return convert(Matrix, data[:,1:(ncol(data)-1)])', v  # iris
 end
+
+function sig_gen(eigvals)
+    n = length(eigvals)
+    Q, ~ = qr(randn(n, n))
+    D = Diagonal(eigvals) 
+    return Q*D*Q'
+end
+
 
 # function to update the centers during kmeans, 
 # here it is used to calculate the real center of the dataset

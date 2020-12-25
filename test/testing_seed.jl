@@ -5,8 +5,8 @@ using MLDataUtils, Clustering
 using JLD
 
 # load functions for branch&bound and data preprocess from self-created module
-if !("." in LOAD_PATH)
-    push!(LOAD_PATH, ".")
+if !("src/" in LOAD_PATH)
+    push!(LOAD_PATH, "src/")
 end
 using data_process, bb_functions, opt_functions
 
@@ -17,8 +17,12 @@ using data_process, bb_functions, opt_functions
 #############################################################
 
 # real world dataset testing
-data, label = data_preprocess("seeds_dataset.txt", nothing, joinpath(pwd(), "../../data/")) # read data in Mac
-# data, label = data_preprocess("seeds_dataset.txt", nothing, joinpath(pwd(), "..\\..\\data\\")) # read data in Windows
+if Sys.iswindows()
+    data, label = data_preprocess("seeds_dataset.txt", nothing, joinpath(@__DIR__, "..\\data\\")) # read data in Windows
+else
+    data, label = data_preprocess("seeds_dataset.txt", nothing, joinpath(@__DIR__, "../data/")) # read data in Mac
+end
+
 label = vec(label)
 k = length(unique(label))
 Random.seed!(123)

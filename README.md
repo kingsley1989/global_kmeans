@@ -1,7 +1,7 @@
 # global_kmeans
  kmeans clustering with branch&bound global optimization
 
-## main code file list
+## source file list
 bb_functions.jl branch and bound functions
 
 lb_functions.jl lower bound calculation functions
@@ -12,7 +12,7 @@ opt_functions.jl local and global optimization functions
 
 data_process.jl data preprocess and result evaluation and plotting functions
 
-## testing file list
+## test file list
 codetest.jl testing file for lower bound calculation functions
 
 testing_toy.jl testing code for toy data 
