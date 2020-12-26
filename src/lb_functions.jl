@@ -219,17 +219,28 @@ function strGrp_nofill(assign, ngroups)
 end
 
 # grouping function that stratified on assign and select data evenly by applying kmeans clustering on each cluster
-# the sampling will have a bug in kmeans grouping with sample function when the smallest cluster only has one data point
+# the sampling will have a bug in kmeans grouping with sample function when the smallest cluster only has p data points, which p < 2*ngroups
 function kmeans_group(X, assign, ngroups)
     clst_label, clst_idx = unique_inverse(assign)
     # number of sub-cluster for each cluster, k_sub <= clst_size/ngroups, which is length(clst_idx[i])/ngroups
-    k_sub = sample(2:floor(Int, minimum(length.(clst_idx))/ngroups/2)) # this can only guarantee at least one cluster can be grouped into ngroups
+    # we have to check if the cluster size p is too small that p < ngroups, just set k_sub as 2, 
+    # here we may occur that points this cluster may not fall in all groups, aka, # of points in each sub-cluster < ngroups.
+    # if floor(Int, minimum(length.(clst_idx))/ngroups/2) <= 1
+    #     k_sub = 2
+    # else
+    #     k_sub = sample(2:floor(Int, minimum(length.(clst_idx))/ngroups/2)) # this can only guarantee at least one cluster can be grouped into ngroups. Do we need to divid 2?
+    # end
     groups = [[] for i=1:ngroups]
     for i in clst_label
+        # using floor to guarantee one cluster can assign points to every group
+        k_sub = floor(Int, length(clst_idx[i])/ngroups) # get number of sub-cluster for each cluster, the higher the k_sub, the more sparse of the subgroup
+        if k_sub <=1
+            k_sub = 2
+        end
         clst_rlt = kmeans(X[:,clst_idx[i]], k_sub) # get sub-cluster from one cluster
         #println(clst_rlt.assignments)
         clst_groups = strGrp_nofill(clst_rlt.assignments, ngroups) # get the grouping label from one cluster
-        for j in 1:length(clst_groups) # we put index of points in sub-clusters from cluster i that belongs to group j to group j
+        for j in 1:length(clst_groups) # we put index of points in sub-clusters from cluster i that belongs to group j
             append!(groups[j], clst_idx[i][clst_groups[j]]);
         end
     end
