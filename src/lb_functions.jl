@@ -70,7 +70,7 @@ function LD(X, d, k, ngroups, groups, qUB, lower=nothing, upper=nothing)
     maxLB = -Inf
     i = 0
     alpha = 1
-    while  LB >= maxLB # norm(lambda, Inf) > 0.1 # (qUB-maxLB)/min(abs(qUB)) >= 0.01 # 
+    while  (alpha >= 1.0e-6) & (LB >= maxLB) # norm(lambda, Inf) > 0.1 # (qUB-maxLB)/min(abs(qUB)) >= 0.01 # 
         if LB > qUB
             maxLB = LB
             break
@@ -123,9 +123,9 @@ function LD_2(X, d, k, ngroups, groups, qUB, lower=nothing, upper=nothing)
     LB = 0
     # start LB caculation with lambda updating process
     maxLB = -Inf
-    i = 0
-    alpha = 1
-    while  LB >= maxLB # norm(lambda, Inf) > 0.1 # (qUB-maxLB)/min(abs(qUB)) >= 0.01 # 
+    #i = 0
+    alpha = 0.5
+    while  (alpha >= 1.0e-6) & (LB >= maxLB) # norm(lambda, Inf) > 0.1 # (qUB-maxLB)/min(abs(qUB)) >= 0.01 # 
         if LB > qUB
             maxLB = LB
             break
@@ -150,7 +150,7 @@ function LD_2(X, d, k, ngroups, groups, qUB, lower=nothing, upper=nothing)
         lambda[:,:,2:ngroups] = updateLambda_subgrad_2(vec(lambda[:,:,2:ngroups]), qUB, LB, centers_gp, alpha)
         alpha = 0.5*alpha 
         println(LB)
-        i += 1
+        #i += 1
     end
 
     return maxLB
@@ -284,13 +284,13 @@ function getLowerBound_adptGp_LD(X, k, centers, parent_groups=nothing, lower=not
     groups = kmeans_group(X, assign, ngroups)
     
     # calculate the lower bound with largrangean decomposition
-    LB = LD(X, d, k, ngroups, groups, obj_ub, lower, upper)
+    LB = LD_2(X, d, k, ngroups, groups, obj_ub, lower, upper)
 
     # check if LB with new grouping lower than the LB of parent node
-    if LB < glbLB | LB > obj_ub # if LB is smaller, than adopt the parent grouping
+    if (LB < glbLB) || (LB > obj_ub) # if LB is smaller, than adopt the parent grouping
         groups = parent_groups
         # calculate the lower bound with largrangean decomposition
-        LB = LD(X, d, k, ngroups, groups, obj_ub, lower, upper)
+        LB = LD_2(X, d, k, ngroups, groups, obj_ub, lower, upper)
     end
     return LB, groups
 end
