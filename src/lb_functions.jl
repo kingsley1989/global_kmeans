@@ -33,7 +33,8 @@ function getLowerBound_Test(X, k, centers, lower=nothing, upper=nothing)
 
     LB = 0
     for i = 1:ngroups
-    	centers, assign, objv = global_OPT3(X[:,groups[i]], k, lower, upper, true);
+        # assign is not necessary
+    	centers, objv = global_OPT3(X[:,groups[i]], k, lower, upper, true);
 	    LB += objv;
     end
     return LB
@@ -83,10 +84,11 @@ function LD(X, d, k, ngroups, groups, qUB, lower=nothing, upper=nothing)
         centers_gp = zeros(d, k, ngroups) # initial var to save centers for each group
         for i = 1:ngroups
             if i == ngroups
-                centers, assign, objv = opt_functions.global_OPT3_LD(X[:,groups[i]], k, 
+                # assign is not necessary
+                centers, objv = opt_functions.global_OPT3_LD(X[:,groups[i]], k, 
                     lambda[:,:,[i, 1]], lower, upper, true); # here when i=ng, i+1 should be 1
             else
-                centers, assign, objv = opt_functions.global_OPT3_LD(X[:,groups[i]], k, 
+                centers, objv = opt_functions.global_OPT3_LD(X[:,groups[i]], k, 
                     lambda[:,:,i:(i+1)], lower, upper, true); # here when i=ng, i+1 should be 1
             end
             centers_gp[:,:,i] = centers
@@ -94,11 +96,10 @@ function LD(X, d, k, ngroups, groups, qUB, lower=nothing, upper=nothing)
         end
         # update lambda before the new loop
         lambda = updateLambda_subgrad(vec(lambda), qUB, LB, centers_gp, alpha) 
-        alpha = 0.6*alpha
+        alpha = 0.8*alpha
         println(LB)
         i += 1
     end
-
     return maxLB
 end
 
@@ -124,7 +125,7 @@ function LD_2(X, d, k, ngroups, groups, qUB, lower=nothing, upper=nothing)
     # start LB caculation with lambda updating process
     maxLB = -Inf
     #i = 0
-    alpha = 0.5
+    alpha = 1
     while  (alpha >= 1.0e-6) & (LB >= maxLB) # norm(lambda, Inf) > 0.1 # (qUB-maxLB)/min(abs(qUB)) >= 0.01 # 
         if LB > qUB
             maxLB = LB
@@ -140,7 +141,8 @@ function LD_2(X, d, k, ngroups, groups, qUB, lower=nothing, upper=nothing)
         # lambda dimensions: d*k*(ngroups+1) [0-ngroups]
         # lambda[:,:,1] --> lambda_0, lambda[:,:,ng+1] --> lambda_ng, both are 0 here.
         for i = 1:ngroups
-            centers, assign, objv = opt_functions.global_OPT3_LD(X[:,groups[i]], k, 
+            # assign is not necessary
+            centers, objv = opt_functions.global_OPT3_LD(X[:,groups[i]], k, 
                 lambda[:,:,i:(i+1)], lower, upper, true);
             centers_gp[:,:,i] = centers; # i for groups and centers are corresponding to i+1 of lambda
             LB += objv;
@@ -148,7 +150,7 @@ function LD_2(X, d, k, ngroups, groups, qUB, lower=nothing, upper=nothing)
         # update lambda before the new loop
         # here we only need to update lambda[:,:,2:ngroups] (actaully is 1:(ngroups-1))
         lambda[:,:,2:ngroups] = updateLambda_subgrad_2(vec(lambda[:,:,2:ngroups]), qUB, LB, centers_gp, alpha)
-        alpha = 0.5*alpha 
+        alpha = 0.8*alpha 
         println(LB)
         #i += 1
     end
@@ -180,6 +182,7 @@ function getLowerBound_LD(X, k, centers, lower=nothing, upper=nothing)
     
     return LB
 end
+
 
 ############## Lower bound calculation with adaptive sub-grouping ##############
 
@@ -257,7 +260,8 @@ function getLowerBound_adptGp(X, k, centers, parent_groups=nothing, lower=nothin
     # calculate the lower bound
     LB = 0
     for i = 1:ngroups
-    	centers, assign, objv = global_OPT3(X[:,groups[i]], k, lower, upper, true);
+        # assign is not necessary
+    	centers, objv = global_OPT3(X[:,groups[i]], k, lower, upper, true);
 	    LB += objv;
     end
 
@@ -267,7 +271,8 @@ function getLowerBound_adptGp(X, k, centers, parent_groups=nothing, lower=nothin
         # calculate the lower bound
         LB = 0
         for i = 1:ngroups
-            centers, assign, objv = global_OPT3(X[:,groups[i]], k, lower, upper, true);
+            # assign is not necessary
+            centers, objv = global_OPT3(X[:,groups[i]], k, lower, upper, true);
             LB += objv;
         end
     end

@@ -15,8 +15,8 @@ using data_process, bb_functions, opt_functions
 #############################################################
 
 Random.seed!(0)
-clst_n = 20 # number of points in a cluster 
-k = 5
+clst_n = 100 # number of points in a cluster 
+k = 3
 data = Array{Float64}(undef, 2, clst_n*k) # initial data array (clst_n*k)*2 
 label = Array{Float64}(undef, clst_n*k) # label is empty vector 1*(clst_n*k)
 mu = reshape(sample(1:20, k*2), k, 2) #[5 4; 2 1; 10 3]
@@ -40,8 +40,10 @@ savefig(sctrplot, "toy_$k-$clst_n.png")# string("toy_",k, "_", clst_n, ".png")
 
 # local optimization for kmeans clustering
 centers_l, assign_l, objv_l = local_OPT(data, k)
-# global optimization using CPLEX directly
-centers_g, assign_l, objv_l = global_OPT3(data, k)
+# global optimization using CPLEX directly objv_lg is the lower bound of current solution
+centers_g, objv_lg = global_OPT3(data, k)
+# get assignment from global solution of CPLEX
+objv_g, assign_g = obj_assign(centers_g, data);
 
 # branch&bound global optimization for kmeans clustering
 t = @elapsed centers, objv, calcInfo = branch_bound(data, k)

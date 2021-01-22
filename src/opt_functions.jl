@@ -63,6 +63,7 @@ function local_OPT(X, k, lower=nothing, upper=nothing)
     optimize!(m);
     centers = value.(centers)
     objv, assign = obj_assign(centers, X)
+    #objv = getobjectivevalue(m)
     return centers, assign, objv
 end
 
@@ -100,7 +101,7 @@ function global_OPT3(X, k, lower=nothing, upper=nothing, mute=false)
     if mute
         set_optimizer_attribute(m, "CPX_PARAM_SCRIND", 0)
     end
-    set_optimizer_attribute(m, "CPX_PARAM_TILIM", 43200)
+    set_optimizer_attribute(m, "CPX_PARAM_TILIM", 21600) # maximum runtime limit is 6 hours
     @variable(m, lower[t,i] <= centers[t in 1:d, i in 1:k] <= upper[t,i], start=rand());
     @constraint(m, [j in 1:k-1], centers[1,j]<= centers[1,j+1])
     @variable(m, 0<=dmat[i in 1:k, j in 1:n]<=dmat_max[i,j], start=rand());
@@ -114,9 +115,12 @@ function global_OPT3(X, k, lower=nothing, upper=nothing, mute=false)
     @objective(m, Min, sum(costs[j] for j in 1:n));
     optimize!(m);
     centers = value.(centers)
-    objv, assign = obj_assign(centers, X) # here the objv should be a lower bound of CPLEX
-    return centers, assign, objv
+    #objv, assign = obj_assign(centers, X) # here the objv should be a lower bound of CPLEX
+    # get the real objective of the lower bound problem and no need to get he value assign
+    objv = getobjectivevalue(m)
+    return centers, objv
 end
+
 
 # here the labmda is the largrange multiplier
 function global_OPT3_LD(X, k, lambda, lower=nothing, upper=nothing, mute=false)
@@ -166,8 +170,10 @@ function global_OPT3_LD(X, k, lambda, lower=nothing, upper=nothing, mute=false)
                 sum((lambda[:,i,2]-lambda[:,i,1])'*centers[:,i] for i in 1:k));
     optimize!(m);
     centers = value.(centers)
-    objv, assign = obj_assign(centers, X) # we can directly use the ub of cplex result
-    return centers, assign, objv
+    #objv, assign = obj_assign(centers, X) # here the objv should be a lower bound of CPLEX
+    # get the real objective of the lower bound problem and no need to get he value assign
+    objv = getobjectivevalue(m)
+    return centers, objv
 end
 
 end 
