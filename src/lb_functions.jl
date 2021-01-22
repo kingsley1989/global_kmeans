@@ -292,7 +292,7 @@ function getLowerBound_adptGp_LD(X, k, centers, parent_groups=nothing, lower=not
     LB = LD_2(X, d, k, ngroups, groups, obj_ub, lower, upper)
 
     # check if LB with new grouping lower than the LB of parent node
-    if (LB < glbLB) || (LB > obj_ub) # if LB is smaller, than adopt the parent grouping
+    if (LB < glbLB) #|| (LB > obj_ub) # if LB is smaller, than adopt the parent grouping
         groups = parent_groups
         # calculate the lower bound with largrangean decomposition
         LB = LD_2(X, d, k, ngroups, groups, obj_ub, lower, upper)

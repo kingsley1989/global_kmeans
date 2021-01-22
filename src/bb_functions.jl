@@ -20,9 +20,10 @@ end
 Node() = Node(nothing, nothing, -1, -1e10, nothing)
 
 
-maxiter = 100
+maxiter = 5000
 tol = 1e-6
 mingap = 0.01
+time_lapse = 21600
 
 
 # function to print the node in a neat form
@@ -34,6 +35,9 @@ function printNodeList(nodeList)
         println(map(x -> @sprintf("%.3f",x), getfield(nodeList[i],:LB)))
     end
 end
+
+# function to record the finish time point
+time_finish(seconds) = round(Int, 10^9 * seconds + time_ns())
 
 
 function getGlobalLowerBound(nodeList) # if LB same, choose the first smallest one
@@ -108,10 +112,13 @@ function branch_bound(X, k)
     iter = 0
     println(" iter ", " left ", " lev  ", "       LB       ", "       UB      ", "      gap   ")
     
+    # get program end time point
+    end_time = time_finish(time_lapse) # the branch and bound process ends after 6 hours
+
     #####inside main loop##################################
     calcInfo = [] # initial space to save calcuation information
     while nodeList!=[]
-        if iter == maxiter
+        if (iter == maxiter) || (time_ns() >= end_time)
            break
         end
         iter += 1
@@ -226,10 +233,13 @@ function branch_bound_LD(X, k)
     iter = 0
     println(" iter ", " left ", " lev  ", "       LB       ", "       UB      ", "      gap   ")
 
+    # get program end time point
+    end_time = time_finish(time_lapse) # the branch and bound process ends after 6 hours
+
     #####inside main loop##################################
     calcInfo = [] # initial space to save calcuation information
     while nodeList!=[]
-        if iter == maxiter
+        if (iter == maxiter) || (time_ns() >= end_time)
            break
         end
         iter += 1
@@ -343,10 +353,13 @@ function branch_bound_adptGp(X, k)
     iter = 0
     println(" iter ", " left ", " lev  ", "       LB       ", "       UB      ", "      gap   ")
     
+    # get program end time point
+    end_time = time_finish(time_lapse) # the branch and bound process ends after 6 hours
+
     #####inside main loop##################################
     calcInfo = [] # initial space to save calcuation information
     while nodeList!=[]
-        if iter == maxiter
+        if (iter == maxiter) || (time_ns() >= end_time)
            break
         end
         iter += 1
@@ -470,10 +483,13 @@ function branch_bound_adptGp_LD(X, k)
     iter = 0
     println(" iter ", " left ", " lev  ", "       LB       ", "       UB      ", "      gap   ")
 
+    # get program end time point
+    end_time = time_finish(time_lapse) # the branch and bound process ends after 6 hours
+
     #####inside main loop##################################
     calcInfo = [] # initial space to save calcuation information
     while nodeList!=[]
-        if iter == maxiter
+        if (iter == maxiter) || (time_ns() >= end_time)
            break
         end
         iter += 1
@@ -558,11 +574,13 @@ function branch_bound_adptGp_LD(X, k)
     end
     if nodeList==[]
        println("all node solved")
+       #=
        if UB > 0
             LB = min(UB-mingap, UB/(1+mingap))
        else
             LB = min(UB-mingap, UB*(1+mingap))
        end
+       =#
     end
     println("solved nodes:  ",iter)
     @printf "%-52d  %-14.4e %-14.4e %-7.4f %s \n" iter  LB UB (UB-LB)/min(abs(LB),abs(UB))*100 "%"
