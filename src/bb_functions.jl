@@ -22,7 +22,7 @@ Node() = Node(nothing, nothing, -1, -1e10, nothing)
 
 maxiter = 5000
 tol = 1e-6
-mingap = 1e-2
+mingap = 1e-3
 time_lapse = 14400 # 4 hours
 
 
@@ -35,6 +35,7 @@ function printNodeList(nodeList)
         println(map(x -> @sprintf("%.3f",x), getfield(nodeList[i],:LB)))
     end
 end
+
 
 # function to record the finish time point
 time_finish(seconds) = round(Int, 10^9 * seconds + time_ns())
@@ -174,7 +175,7 @@ function branch_bound(X, k)
             if node_LB < max_LB
                 max_LB = node_LB
             end
-            continue   
+            # continue   
 	    else
             #SelectVarMaxRange	centers = rand(d, k)
             bVarIdx = 1
@@ -213,6 +214,7 @@ function branch_bound(X, k)
     push!(calcInfo, [iter, length(nodeList), max_LB, UB, (UB-max_LB)/min(abs(max_LB), abs(UB))])
     return centers, UB, calcInfo
 end
+
 
 function branch_bound_LD(X, k)
     d, n = size(X);	 
@@ -302,7 +304,7 @@ function branch_bound_LD(X, k)
             if node_LB < max_LB
                 max_LB = node_LB
             end
-            continue   
+            # continue   
 	    else
             #SelectVarMaxRange	centers = rand(d, k)
             bVarIdx = 1
@@ -341,6 +343,7 @@ function branch_bound_LD(X, k)
     push!(calcInfo, [iter, length(nodeList), max_LB, UB, (UB-max_LB)/min(abs(max_LB), abs(UB))])
     return centers, UB, calcInfo
 end
+
 
 function branch_bound_adptGp(X, k)
     d, n = size(X);	 
@@ -439,7 +442,7 @@ function branch_bound_adptGp(X, k)
             if node_LB < max_LB
                 max_LB = node_LB
             end
-            continue   
+            # continue   
 	    else
             #SelectVarMaxRange	centers = rand(d, k)
             bVarIdx = 1
@@ -478,6 +481,7 @@ function branch_bound_adptGp(X, k)
     push!(calcInfo, [iter, length(nodeList), max_LB, UB, (UB-max_LB)/min(abs(max_LB), abs(UB))])
     return centers, UB, calcInfo
 end
+
 
 function branch_bound_adptGp_LD(X, k)
     d, n = size(X);	 
@@ -576,7 +580,7 @@ function branch_bound_adptGp_LD(X, k)
             if node_LB < max_LB
                 max_LB = node_LB
             end
-            continue   
+            # continue   
 	    else
             #SelectVarMaxRange	centers = rand(d, k)
             bVarIdx = 1

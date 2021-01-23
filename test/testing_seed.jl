@@ -30,6 +30,11 @@ Random.seed!(123)
 
 # local optimization for kmeans clustering
 centers_l, assign_l, objv_l = local_OPT(data, k)
+# global optimization using CPLEX directly objv_lg is the lower bound of current solution
+centers_g, objv_lg = global_OPT3(data, k)
+# get assignment from global solution of CPLEX
+objv_g, assign_g = obj_assign(centers_g, data);
+
 # branch&bound global optimization for kmeans clustering
 t = @elapsed centers, objv, calcInfo = branch_bound(data, k)
 t_LD = @elapsed centers_LD, objv_LD, calcInfo_LD = bb_functions.branch_bound_LD(data, k)
