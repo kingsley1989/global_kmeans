@@ -269,12 +269,13 @@ function getLowerBound_adptGp(X, k, centers, parent_groups=nothing, lower=nothin
     if LB < glbLB # if LB is smaller, than adopt the parent grouping
         groups = parent_groups
         # calculate the lower bound
-        LB = 0
+        LB_n = 0
         for i = 1:ngroups
             # assign is not necessary
             centers, objv = global_OPT3(X[:,groups[i]], k, lower, upper, true);
-            LB += objv;
+            LB_n += objv;
         end
+        LB = max(LB, LB_n)
     end
     return LB, groups
 end
@@ -295,7 +296,8 @@ function getLowerBound_adptGp_LD(X, k, centers, parent_groups=nothing, lower=not
     if (LB < glbLB) #|| (LB > obj_ub) # if LB is smaller, than adopt the parent grouping
         groups = parent_groups
         # calculate the lower bound with largrangean decomposition
-        LB = LD_2(X, d, k, ngroups, groups, obj_ub, lower, upper)
+        LB_n = LD_2(X, d, k, ngroups, groups, obj_ub, lower, upper)
+        LB = max(LB, LB_n)
     end
     return LB, groups
 end

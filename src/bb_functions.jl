@@ -22,8 +22,8 @@ Node() = Node(nothing, nothing, -1, -1e10, nothing)
 
 maxiter = 5000
 tol = 1e-6
-mingap = 0.01
-time_lapse = 21600
+mingap = 1e-2
+time_lapse = 14400 # 4 hours
 
 
 # function to print the node in a neat form
@@ -105,6 +105,7 @@ function branch_bound(X, k)
     #println(groups)
 
     UB = 1e10;
+    max_LB = -1e10; # used to save the best lower bound at the end (smallest but within the mingap)
     centers = nothing;
     root = Node(lower_data, upper_data, -1, -1e10, groups);
     nodeList =[]
@@ -166,7 +167,13 @@ function branch_bound(X, k)
         #end 
         # println("nodeLB nodeUB   ",node_LB, "     ", node_UB) 
         # println("centers  ", centers)
+        # here this condition include the condition UB < node_LB and the condition that current node's LB is close to UB within the mingap
+        # Such node no need to branch
         if (UB-node_LB)<= mingap || (UB-node_LB) <= mingap*min(abs(node_LB), abs(UB))
+            # save the best LB if it close to UB enough (within the mingap)
+            if node_LB < max_LB
+                max_LB = node_LB
+            end
             continue   
 	    else
             #SelectVarMaxRange	centers = rand(d, k)
@@ -193,17 +200,17 @@ function branch_bound(X, k)
     end
     if nodeList==[]
        println("all node solved")
-       if UB > 0
+       #=if UB > 0
             LB = min(UB-mingap, UB/(1+mingap)) 
        else
             LB = min(UB-mingap, UB*(1+mingap))
-       end
+       end=#
     end
     println("solved nodes:  ",iter)
-    @printf "%-52d  %-14.4e %-14.4e %-7.4f %s \n" iter  LB UB (UB-LB)/min(abs(LB),abs(UB))*100 "%"
+    @printf "%-52d  %-14.4e %-14.4e %-7.4f %s \n" iter  max_LB UB (UB-max_LB)/min(abs(max_LB),abs(UB))*100 "%"
     println("centers   ",centers)
     # save final calcuation information
-    push!(calcInfo, [iter, length(nodeList), LB, UB, (UB-LB)/min(abs(LB), abs(UB))])
+    push!(calcInfo, [iter, length(nodeList), max_LB, UB, (UB-max_LB)/min(abs(max_LB), abs(UB))])
     return centers, UB, calcInfo
 end
 
@@ -226,6 +233,7 @@ function branch_bound_LD(X, k)
     #println(groups)
 
     UB = 1e10;
+    max_LB = -1e10; # used to save the best lower bound at the end (smallest but within the mingap)
     centers = nothing;
     root = Node(lower_data, upper_data, -1, -1e10, groups);
     nodeList =[]
@@ -287,7 +295,13 @@ function branch_bound_LD(X, k)
         #end 
         # println("nodeLB nodeUB   ",node_LB, "     ", node_UB) 
         # println("centers  ", centers)
+        # here this condition include the condition UB < node_LB and the condition that current node's LB is close to UB within the mingap
+        # Such node no need to branch
         if (UB-node_LB)<= mingap || (UB-node_LB) <= mingap*min(abs(node_LB), abs(UB))
+            # save the best LB if it close to UB enough (within the mingap)
+            if node_LB < max_LB
+                max_LB = node_LB
+            end
             continue   
 	    else
             #SelectVarMaxRange	centers = rand(d, k)
@@ -314,17 +328,17 @@ function branch_bound_LD(X, k)
     end
     if nodeList==[]
        println("all node solved")
-       if UB > 0
+       #=if UB > 0
             LB = min(UB-mingap, UB/(1+mingap))
        else
             LB = min(UB-mingap, UB*(1+mingap))
-       end
+       end=#
     end
     println("solved nodes:  ",iter)
-    @printf "%-52d  %-14.4e %-14.4e %-7.4f %s \n" iter  LB UB (UB-LB)/min(abs(LB),abs(UB))*100 "%"
+    @printf "%-52d  %-14.4e %-14.4e %-7.4f %s \n" iter  max_LB UB (UB-max_LB)/min(abs(max_LB),abs(UB))*100 "%"
     println("centers   ",centers)
     # save final calcuation information
-    push!(calcInfo, [iter, length(nodeList), LB, UB, (UB-LB)/min(abs(LB), abs(UB))])
+    push!(calcInfo, [iter, length(nodeList), max_LB, UB, (UB-max_LB)/min(abs(max_LB), abs(UB))])
     return centers, UB, calcInfo
 end
 
@@ -346,6 +360,7 @@ function branch_bound_adptGp(X, k)
     #println(groups)
 
     UB = 1e10;
+    max_LB = -1e10; # used to save the best lower bound at the end (smallest but within the mingap)
     centers = nothing;
     root = Node(lower_data, upper_data, -1, -1e10, groups);
     nodeList =[]
@@ -417,7 +432,13 @@ function branch_bound_adptGp(X, k)
         
         # println("nodeLB nodeUB   ",node_LB, "     ", node_UB) 
         # println("centers  ", centers)
+        # here this condition include the condition UB < node_LB and the condition that current node's LB is close to UB within the mingap
+        # Such node no need to branch
         if (UB-node_LB)<= mingap || (UB-node_LB) <= mingap*min(abs(node_LB), abs(UB))
+            # save the best LB if it close to UB enough (within the mingap)
+            if node_LB < max_LB
+                max_LB = node_LB
+            end
             continue   
 	    else
             #SelectVarMaxRange	centers = rand(d, k)
@@ -444,17 +465,17 @@ function branch_bound_adptGp(X, k)
     end
     if nodeList==[]
        println("all node solved")
-       if UB > 0
+       #=if UB > 0
             LB = min(UB-mingap, UB/(1+mingap))
        else
             LB = min(UB-mingap, UB*(1+mingap))
-       end
+       end=#
     end
     println("solved nodes:  ",iter)
-    @printf "%-52d  %-14.4e %-14.4e %-7.4f %s \n" iter  LB UB (UB-LB)/min(abs(LB),abs(UB))*100 "%"
+    @printf "%-52d  %-14.4e %-14.4e %-7.4f %s \n" iter  max_LB UB (UB-max_LB)/min(abs(max_LB),abs(UB))*100 "%"
     println("centers   ",centers)
     # save final calcuation information
-    push!(calcInfo, [iter, length(nodeList), LB, UB, (UB-LB)/min(abs(LB), abs(UB))])
+    push!(calcInfo, [iter, length(nodeList), max_LB, UB, (UB-max_LB)/min(abs(max_LB), abs(UB))])
     return centers, UB, calcInfo
 end
 
@@ -476,6 +497,7 @@ function branch_bound_adptGp_LD(X, k)
     #println(groups)
 
     UB = 1e10;
+    max_LB = 1e10; # used to save the best lower bound at the end (smallest but within the mingap)
     centers = nothing;
     root = Node(lower_data, upper_data, -1, -1e10, groups);
     nodeList =[]
@@ -547,7 +569,13 @@ function branch_bound_adptGp_LD(X, k)
         
         # println("nodeLB nodeUB   ",node_LB, "     ", node_UB) 
         # println("centers  ", centers)
+        # here this condition include the condition UB < node_LB and the condition that current node's LB is close to UB within the mingap
+        # Such node no need to branch
         if (UB-node_LB)<= mingap || (UB-node_LB) <= mingap*min(abs(node_LB), abs(UB))
+            # save the best LB if it close to UB enough (within the mingap)
+            if node_LB < max_LB
+                max_LB = node_LB
+            end
             continue   
 	    else
             #SelectVarMaxRange	centers = rand(d, k)
@@ -574,19 +602,17 @@ function branch_bound_adptGp_LD(X, k)
     end
     if nodeList==[]
        println("all node solved")
-       #=
-       if UB > 0
+       #=if UB > 0
             LB = min(UB-mingap, UB/(1+mingap))
        else
             LB = min(UB-mingap, UB*(1+mingap))
-       end
-       =#
+       end=#
     end
     println("solved nodes:  ",iter)
-    @printf "%-52d  %-14.4e %-14.4e %-7.4f %s \n" iter  LB UB (UB-LB)/min(abs(LB),abs(UB))*100 "%"
+    @printf "%-52d  %-14.4e %-14.4e %-7.4f %s \n" iter  max_LB UB (UB-max_LB)/min(abs(max_LB),abs(UB))*100 "%"
     println("centers   ",centers)
     # save final calcuation information
-    push!(calcInfo, [iter, length(nodeList), LB, UB, (UB-LB)/min(abs(LB), abs(UB))])
+    push!(calcInfo, [iter, length(nodeList), max_LB, UB, (UB-max_LB)/min(abs(max_LB), abs(UB))])
     return centers, UB, calcInfo
 end
 
