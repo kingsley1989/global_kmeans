@@ -34,9 +34,7 @@ t_adp = @elapsed centers_adp, objv_adp, calcInfo_adp = bb_functions.branch_bound
 t_adp_LD = @elapsed centers_adp_LD, objv_adp_LD, calcInfo_adp_LD = bb_functions.branch_bound_adptGp_LD(data, k) #
 
 # global optimization using CPLEX directly objv_lg is the lower bound of current solution
-centers_g, objv_lg = global_OPT3(data, k)
-# get assignment from global solution of CPLEX
-objv_g, assign_g = obj_assign(centers_g, data);
+t_g = @elapsed centers_g, objv_g, assign_g, gap_g = global_OPT_base(data, k)
 
 # kmeans results for comparison
 t_km = @elapsed rlt_km = kmeans(data, k)
@@ -57,8 +55,8 @@ eval_adp = nestedEval(data, label, centers_adp, objv_adp, rlt_km) # evaluation w
 eval_adp_LD = nestedEval(data, label, centers_adp_LD, objv_adp_LD, rlt_km) # evaluation with LD and adpative grouping bb
 
 # nestRlt save results for comparison plot. Each row represents: time, gap, nmi, vi, ari, final_cost
-timeGapRlt = [[t t_LD t_adp t_adp_LD]; [calcInfo[end][end] calcInfo_LD[end][end] calcInfo_adp[end][end] calcInfo_adp_LD[end][end]]]
+timeGapRlt = [[t_g t t_LD t_adp t_adp_LD]; [gap_g calcInfo[end][end] calcInfo_LD[end][end] calcInfo_adp[end][end] calcInfo_adp_LD[end][end]]]
 
-evalRlt = [eval_orig[:,end] eval_LD[:,end] eval_adp[:,end] eval_adp_LD[:,end] [nmi_km; vi_km; ari_km; rlt_km.totalcost]]
+evalRlt = [eval_CPLEX[:,end] eval_orig[:,end] eval_LD[:,end] eval_adp[:,end] eval_adp_LD[:,end] [nmi_km; vi_km; ari_km; rlt_km.totalcost]]
 
-save("testing_iris.jld", "data", data,  "timeGapRlt", timeGapRlt, "evalRlt", evalRlt)
+save("result/testing_iris.jld", "data", data,  "timeGapRlt", timeGapRlt, "evalRlt", evalRlt)

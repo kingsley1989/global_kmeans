@@ -6,7 +6,7 @@ using JuMP
 using Ipopt, CPLEX#, SCIP
 using Random
 
-export obj_assign, local_OPT, global_OPT3
+export obj_assign, local_OPT, global_OPT3, global_OPT_base
 
 
 function obj_assign(centers, X)
@@ -65,6 +65,58 @@ function local_OPT(X, k, lower=nothing, upper=nothing)
     objv, assign = obj_assign(centers, X)
     #objv = getobjectivevalue(m)
     return centers, assign, objv
+end
+
+function global_OPT_base(X, k, lower=nothing, upper=nothing, mute=false)
+    d, n = size(X)
+    d, n = size(X)
+    lower_data = Vector{Float64}(undef, d)
+    upper_data = Vector{Float64}(undef, d)
+    for i = 1:d
+        lower_data[i] = minimum(X[i,:])
+        upper_data[i] = maximum(X[i,:])
+    end
+    lower_data = repeat(lower_data, 1, k)
+    upper_data = repeat(upper_data, 1, k)
+    if lower === nothing
+        lower = lower_data
+        upper = upper_data
+    else
+        lower = min.(upper.-1e-4, max.(lower, lower_data))
+        upper = max.(lower.+1e-4, min.(upper, upper_data))
+    end
+    dmat_max = zeros(k,n)
+    for j = 1:n
+    	for i = 1:k
+            max_distance = 0
+            for t = 1:d
+                max_distance += max((X[t,j]-lower[t,i])^2, (X[t,j]-upper[t,i])^2)
+            end	
+            dmat_max[i,j] = max_distance
+	    end
+    end    
+
+    m = Model(CPLEX.Optimizer);
+    if mute
+        set_optimizer_attribute(m, "CPX_PARAM_SCRIND", 0)
+    end
+    set_optimizer_attribute(m, "CPX_PARAM_TILIM", 14400) # maximum runtime limit is 4 hours
+    @variable(m, lower[t,i] <= centers[t in 1:d, i in 1:k] <= upper[t,i], start=rand());
+    @constraint(m, [j in 1:k-1], centers[1,j]<= centers[1,j+1])
+    @variable(m, 0<=dmat[i in 1:k, j in 1:n]<=dmat_max[i,j], start=rand());
+    @constraint(m, [i in 1:k, j in 1:n], dmat[i,j] >= sum((X[t,j] - centers[t,i])^2 for t in 1:d ));
+    @variable(m, lambda[1:k, 1:n], Bin)
+    @constraint(m, [j in 1:n], sum(lambda[i,j] for i in 1:k) == 1);
+    @variable(m, costs[1:n], start=rand());
+    @constraint(m, [i in 1:k, j in 1:n], costs[j] - dmat[i,j] >= -dmat_max[i,j]*(1-lambda[i,j]))
+    @constraint(m, [i in 1:k, j in 1:n], costs[j] - dmat[i,j] <= dmat_max[i,j]*(1-lambda[i,j]))
+
+    @objective(m, Min, sum(costs[j] for j in 1:n));
+    optimize!(m);
+    centers = value.(centers)
+    gap = relative_gap(m) # get the relative gap for cplex solver
+    objv, assign = obj_assign(centers, X) # here the objv should be a lower bound of CPLEX
+    return centers, objv, assign, gap
 end
 
 
