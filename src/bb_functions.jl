@@ -106,7 +106,7 @@ function branch_bound(X, k)
     #println(groups)
 
     UB = 1e10;
-    max_LB = -1e10; # used to save the best lower bound at the end (smallest but within the mingap)
+    max_LB = 1e10; # used to save the best lower bound at the end (smallest but within the mingap)
     centers = nothing;
     root = Node(lower_data, upper_data, -1, -1e10, groups);
     nodeList =[]
@@ -235,7 +235,7 @@ function branch_bound_LD(X, k)
     #println(groups)
 
     UB = 1e10;
-    max_LB = -1e10; # used to save the best lower bound at the end (smallest but within the mingap)
+    max_LB = 1e10; # used to save the best lower bound at the end (smallest but within the mingap)
     centers = nothing;
     root = Node(lower_data, upper_data, -1, -1e10, groups);
     nodeList =[]
@@ -363,7 +363,7 @@ function branch_bound_adptGp(X, k)
     #println(groups)
 
     UB = 1e10;
-    max_LB = -1e10; # used to save the best lower bound at the end (smallest but within the mingap)
+    max_LB = 1e10; # used to save the best lower bound at the end (smallest but within the mingap)
     centers = nothing;
     root = Node(lower_data, upper_data, -1, -1e10, groups);
     nodeList =[]
