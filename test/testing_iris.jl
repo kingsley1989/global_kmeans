@@ -43,9 +43,9 @@ nmi_km, vi_km, ari_km = cluster_eval(rlt_km.assignments, label)
 
 # plot branch and bound calculation process
 plotResult(calcInfo, "iris")
-#plotResult(calcInfo_LD)
-plotResult(calcInfo_adp, "iris")
-#plotResult(calcInfo_adp_LD)
+plotResult(calcInfo_LD, "iris_LD")
+plotResult(calcInfo_adp, "iris_adp")
+plotResult(calcInfo_adp_LD, "iris_adp_LD")
 
 
 # Nested evaluation on the clustering results with kmeans
