@@ -26,16 +26,17 @@ Random.seed!(123)
 
 # local optimization for kmeans clustering
 centers_l, assign_l, objv_l = local_OPT(data, k)
-# global optimization using CPLEX directly objv_lg is the lower bound of current solution
-centers_g, objv_lg = global_OPT3(data, k)
-# get assignment from global solution of CPLEX
-objv_g, assign_g = obj_assign(centers_g, data);
 
 # branch&bound global optimization for kmeans clustering
 t = @elapsed centers, objv, calcInfo = branch_bound(data, k)
 t_LD = @elapsed centers_LD, objv_LD, calcInfo_LD = bb_functions.branch_bound_LD(data, k)
 t_adp = @elapsed centers_adp, objv_adp, calcInfo_adp = bb_functions.branch_bound_adptGp(data, k) # 237s 11 iterations
 t_adp_LD = @elapsed centers_adp_LD, objv_adp_LD, calcInfo_adp_LD = bb_functions.branch_bound_adptGp_LD(data, k) #
+
+# global optimization using CPLEX directly objv_lg is the lower bound of current solution
+centers_g, objv_lg = global_OPT3(data, k)
+# get assignment from global solution of CPLEX
+objv_g, assign_g = obj_assign(centers_g, data);
 
 # kmeans results for comparison
 t_km = @elapsed rlt_km = kmeans(data, k)
@@ -49,6 +50,7 @@ plotResult(calcInfo_adp_LD, "iris_adp_LD")
 
 
 # Nested evaluation on the clustering results with kmeans
+eval_CPLEX = nestedEval(data, label, centers_g, objv_g, rlt_km) # evaluation with CPLEX solver
 eval_orig = nestedEval(data, label, centers, objv, rlt_km) # evaluation with orignal bb
 eval_LD = nestedEval(data, label, centers_LD, objv_LD, rlt_km) # evaluation with LD bb
 eval_adp = nestedEval(data, label, centers_adp, objv_adp, rlt_km) # evaluation with adpative grouping bb
