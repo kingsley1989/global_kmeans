@@ -14,16 +14,16 @@ using data_process, bb_functions, opt_functions
 ################# Main Process Program Body #################
 #############################################################
 
-Random.seed!(0)
-clst_n = 50 # number of points in a cluster 
+Random.seed!(120)
+clst_n = 1350 # number of points in a cluster 
 k = 3
 data = Array{Float64}(undef, 2, clst_n*k) # initial data array (clst_n*k)*2 
 label = Array{Float64}(undef, clst_n*k) # label is empty vector 1*(clst_n*k)
-mu = reshape(sample(1:20, k*2), k, 2) #[5 4; 2 1; 10 3]
+mu = [30 8; 2 1; 200 200] # reshape(sample(1:20, k*2), k, 2) # [20 20; 2 1; 7 3] sig: 1-5
 # sig = [[0.7 0; 0 0.7],[1.5 0;0 1.5],[0.2 0;0 0.6]]
 # we can not do with a = [a, i] refer to Scope of Variables in julia documentation
 for i = 1:k 
-    sig = round.(sig_gen(sample(1:5, 2)))
+    sig = round.(sig_gen(sample(1:200, 2)))
     print(sig)
     clst = rand(MvNormal(mu[i,:], sig), clst_n) # data is 2*clst_n
     data[:,((i-1)*clst_n+1):(i*clst_n)] = clst
@@ -35,8 +35,8 @@ label = convertlabel(1:k, vec(label))
 
 # plot the original data
 pyplot()
-sctrplot = scatter(data[1,:], data[2,:], markercolor=label, legend = false, title = "Scatter Plot of Synthetic Dataset")
-savefig(sctrplot, "toy_$k-$clst_n.png")# string("toy_",k, "_", clst_n, ".png")
+sctrplot = scatter(data[1,:], data[2,:], markercolor=label, legend = false)#, title = "Scatter Plot of Synthetic Dataset")
+savefig(sctrplot, "pic/toy_$k-$clst_n.png")# string("toy_",k, "_", clst_n, ".png")
 
 # local optimization for kmeans clustering
 centers_l, assign_l, objv_l = local_OPT(data, k)

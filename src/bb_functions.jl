@@ -200,18 +200,19 @@ function branch_bound(X, k)
         #@printf "%-6d %-6d %-10d %-10.4f %-10.4e %-10.4f %s \n" iter length(nodeList) node.level node_LB UB (UB-LB)/min(abs(LB), abs(UB))*100 "%"
     end
     if nodeList==[]
-       println("all node solved")
-       #=if UB > 0
+        println("all node solved")
+        #=if UB > 0
             LB = min(UB-mingap, UB/(1+mingap)) 
-       else
+        else
             LB = min(UB-mingap, UB*(1+mingap))
-       end=#
+        end=#
+        # save final calcuation information
+        push!(calcInfo, [iter, length(nodeList), max_LB, UB, (UB-max_LB)/min(abs(max_LB), abs(UB))])
     end
     println("solved nodes:  ",iter)
     @printf "%-52d  %-14.4e %-14.4e %-7.4f %s \n" iter  max_LB UB (UB-max_LB)/min(abs(max_LB),abs(UB))*100 "%"
     println("centers   ",centers)
-    # save final calcuation information
-    push!(calcInfo, [iter, length(nodeList), max_LB, UB, (UB-max_LB)/min(abs(max_LB), abs(UB))])
+    
     return centers, UB, calcInfo
 end
 
@@ -329,18 +330,19 @@ function branch_bound_LD(X, k)
         #@printf "%-6d %-6d %-10d %-10.4f %-10.4e %-10.4f %s \n" iter length(nodeList) node.level node_LB UB (UB-LB)/min(abs(LB), abs(UB))*100 "%"
     end
     if nodeList==[]
-       println("all node solved")
-       #=if UB > 0
+        println("all node solved")
+        #=if UB > 0
             LB = min(UB-mingap, UB/(1+mingap))
-       else
+        else
             LB = min(UB-mingap, UB*(1+mingap))
-       end=#
+        end=#
+        # save final calcuation information
+        push!(calcInfo, [iter, length(nodeList), max_LB, UB, (UB-max_LB)/min(abs(max_LB), abs(UB))])
     end
     println("solved nodes:  ",iter)
     @printf "%-52d  %-14.4e %-14.4e %-7.4f %s \n" iter  max_LB UB (UB-max_LB)/min(abs(max_LB),abs(UB))*100 "%"
     println("centers   ",centers)
-    # save final calcuation information
-    push!(calcInfo, [iter, length(nodeList), max_LB, UB, (UB-max_LB)/min(abs(max_LB), abs(UB))])
+    
     return centers, UB, calcInfo
 end
 
@@ -467,18 +469,19 @@ function branch_bound_adptGp(X, k)
         #@printf "%-6d %-6d %-10d %-10.4f %-10.4e %-10.4f %s \n" iter length(nodeList) node.level node_LB UB (UB-LB)/min(abs(LB), abs(UB))*100 "%"
     end
     if nodeList==[]
-       println("all node solved")
-       #=if UB > 0
+        println("all node solved")
+        #=if UB > 0
             LB = min(UB-mingap, UB/(1+mingap))
-       else
+        else
             LB = min(UB-mingap, UB*(1+mingap))
-       end=#
+        end=#
+        # save final calcuation information
+        push!(calcInfo, [iter, length(nodeList), max_LB, UB, (UB-max_LB)/min(abs(max_LB), abs(UB))])
     end
     println("solved nodes:  ",iter)
     @printf "%-52d  %-14.4e %-14.4e %-7.4f %s \n" iter  max_LB UB (UB-max_LB)/min(abs(max_LB),abs(UB))*100 "%"
     println("centers   ",centers)
-    # save final calcuation information
-    push!(calcInfo, [iter, length(nodeList), max_LB, UB, (UB-max_LB)/min(abs(max_LB), abs(UB))])
+    
     return centers, UB, calcInfo
 end
 
@@ -605,18 +608,19 @@ function branch_bound_adptGp_LD(X, k)
         #@printf "%-6d %-6d %-10d %-10.4f %-10.4e %-10.4f %s \n" iter length(nodeList) node.level node_LB UB (UB-LB)/min(abs(LB), abs(UB))*100 "%"
     end
     if nodeList==[]
-       println("all node solved")
-       #=if UB > 0
+        println("all node solved")
+        #=if UB > 0
             LB = min(UB-mingap, UB/(1+mingap))
-       else
+        else
             LB = min(UB-mingap, UB*(1+mingap))
-       end=#
+        end=#
+        # save final calcuation information
+        push!(calcInfo, [iter, length(nodeList), max_LB, UB, (UB-max_LB)/min(abs(max_LB), abs(UB))])
     end
     println("solved nodes:  ",iter)
     @printf "%-52d  %-14.4e %-14.4e %-7.4f %s \n" iter  max_LB UB (UB-max_LB)/min(abs(max_LB),abs(UB))*100 "%"
     println("centers   ",centers)
-    # save final calcuation information
-    push!(calcInfo, [iter, length(nodeList), max_LB, UB, (UB-max_LB)/min(abs(max_LB), abs(UB))])
+    
     return centers, UB, calcInfo
 end
 
