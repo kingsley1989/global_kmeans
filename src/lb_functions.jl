@@ -132,8 +132,8 @@ function LD_2(X, d, k, ngroups, groups, qUB, lower=nothing, upper=nothing)
             break
         end
         maxLB = LB
-        println("============lambda============")
-        println(lambda)
+        #println("============lambda============")
+        #println(lambda)
         # here lambda input is a vectors but output is the matrix    
         LB = 0
         centers_gp = zeros(d, k, ngroups) # initial var to save centers for each group
