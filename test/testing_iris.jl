@@ -37,8 +37,17 @@ t_adp_LD = @elapsed centers_adp_LD, objv_adp_LD, calcInfo_adp_LD = bb_functions.
 t_g = @elapsed centers_g, objv_g, assign_g, gap_g = global_OPT_base(data, k)
 
 # kmeans results for comparison
-t_km = @elapsed rlt_km = kmeans(data, k)
-nmi_km, vi_km, ari_km = cluster_eval(rlt_km.assignments, label)
+trail = 100
+sum_nmi = 0
+sum_cost = 0
+for i = 1:trail
+    t_km = @elapsed rlt_km = kmeans(data, k)
+    nmi_km, vi_km, ari_km = cluster_eval(rlt_km.assignments, label)
+    sum_nmi = sum_nmi+nmi_km
+    sum_cost = sum_cost+rlt_km.totalcost
+end
+nmi_km_mean = sum_nmi/trail
+cost_km_mean = sum_cost/trail
 
 # plot branch and bound calculation process
 plotResult(calcInfo, "iris")
@@ -57,6 +66,6 @@ eval_adp_LD = nestedEval(data, label, centers_adp_LD, objv_adp_LD, rlt_km) # eva
 # nestRlt save results for comparison plot. Each row represents: time, gap, nmi, vi, ari, final_cost
 timeGapRlt = [[t_g t t_LD t_adp t_adp_LD]; [gap_g calcInfo[end][end] calcInfo_LD[end][end] calcInfo_adp[end][end] calcInfo_adp_LD[end][end]]]
 
-evalRlt = [eval_CPLEX[:,end] eval_orig[:,end] eval_LD[:,end] eval_adp[:,end] eval_adp_LD[:,end] [nmi_km; vi_km; ari_km; rlt_km.totalcost]]
+evalRlt = [eval_CPLEX[:,end] eval_orig[:,end] eval_LD[:,end] eval_adp[:,end] eval_adp_LD[:,end] [nmi_km_mean; vi_km; ari_km; cost_km_mean]]
 
 save("result/testing_iris.jld", "data", data,  "timeGapRlt", timeGapRlt, "evalRlt", evalRlt)
