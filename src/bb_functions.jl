@@ -209,7 +209,7 @@ function branch_bound(X, k)
         # save final calcuation information
         push!(calcInfo, [iter, length(nodeList), max_LB, UB, (UB-max_LB)/min(abs(max_LB), abs(UB))])
     else
-        max_LB = calcInfo[end][end]
+        max_LB = calcInfo[end][4]
     end
     println("solved nodes:  ",iter)
     @printf "%-52d  %-14.4e %-14.4e %-7.4f %s \n" iter  max_LB UB (UB-max_LB)/min(abs(max_LB),abs(UB))*100 "%"
@@ -341,7 +341,7 @@ function branch_bound_LD(X, k)
         # save final calcuation information
         push!(calcInfo, [iter, length(nodeList), max_LB, UB, (UB-max_LB)/min(abs(max_LB), abs(UB))])
     else
-        max_LB = calcInfo[end][end]
+        max_LB = calcInfo[end][4]
     end
     println("solved nodes:  ",iter)
     @printf "%-52d  %-14.4e %-14.4e %-7.4f %s \n" iter  max_LB UB (UB-max_LB)/min(abs(max_LB),abs(UB))*100 "%"
@@ -482,7 +482,7 @@ function branch_bound_adptGp(X, k)
         # save final calcuation information
         push!(calcInfo, [iter, length(nodeList), max_LB, UB, (UB-max_LB)/min(abs(max_LB), abs(UB))])
     else
-        max_LB = calcInfo[end][end]
+        max_LB = calcInfo[end][4]
     end
     println("solved nodes:  ",iter)
     @printf "%-52d  %-14.4e %-14.4e %-7.4f %s \n" iter  max_LB UB (UB-max_LB)/min(abs(max_LB),abs(UB))*100 "%"
@@ -623,7 +623,7 @@ function branch_bound_adptGp_LD(X, k)
         # save final calcuation information
         push!(calcInfo, [iter, length(nodeList), max_LB, UB, (UB-max_LB)/min(abs(max_LB), abs(UB))])
     else
-        max_LB = calcInfo[end][end]
+        max_LB = calcInfo[end][4]
     end
     println("solved nodes:  ",iter)
     @printf "%-52d  %-14.4e %-14.4e %-7.4f %s \n" iter  max_LB UB (UB-max_LB)/min(abs(max_LB),abs(UB))*100 "%"
