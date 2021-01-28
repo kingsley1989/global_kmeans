@@ -63,6 +63,10 @@ end
 nmi_km_mean = sum_nmi/trail
 cost_km_mean = sum_cost/trail
 
+# test of km for reference (temporal way)
+rlt_km = rlt_km = kmeans(data, k)
+~, vi_km, ari_km = cluster_eval(rlt_km.assignments, label)
+
 # plot branch and bound calculation process
 plotResult(calcInfo, "toy_$k-$clst_n")
 plotResult(calcInfo_LD, "toy_LD_$k-$clst_n")
@@ -78,7 +82,7 @@ eval_adp = nestedEval(data, label, centers_adp, objv_adp, rlt_km) # evaluation w
 eval_adp_LD = nestedEval(data, label, centers_adp_LD, objv_adp_LD, rlt_km) # evaluation with LD and adpative grouping bb
 
 # nestRlt save results for comparison plot. Each row represents: time, gap, nmi, vi, ari, final_cost
-timeGapRlt = [[t_g t t_LD t_adp t_adp_LD]; [calcInfo[end][end] calcInfo_LD[end][end] calcInfo_adp[end][end] calcInfo_adp_LD[end][end]]]
+timeGapRlt = [[t_g t t_LD t_adp t_adp_LD]; [gap_g calcInfo[end][end] calcInfo_LD[end][end] calcInfo_adp[end][end] calcInfo_adp_LD[end][end]]]
 
 evalRlt = [eval_CPLEX[:,end] eval_orig[:,end] eval_LD[:,end] eval_adp[:,end] eval_adp_LD[:,end] [nmi_km_mean; vi_km; ari_km; cost_km_mean]]
 
