@@ -49,6 +49,10 @@ end
 nmi_km_mean = sum_nmi/trail
 cost_km_mean = sum_cost/trail
 
+# test of km for reference (temporal way)
+rlt_km = rlt_km = kmeans(data, k)
+~, vi_km, ari_km = cluster_eval(rlt_km.assignments, label)
+
 # plot branch and bound calculation process
 plotResult(calcInfo, "iris")
 plotResult(calcInfo_LD, "iris_LD")
