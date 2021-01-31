@@ -142,11 +142,13 @@ function LD_2(X, d, k, ngroups, groups, qUB, lower=nothing, upper=nothing)
         # lambda[:,:,1] --> lambda_0, lambda[:,:,ng+1] --> lambda_ng, both are 0 here.
         for i = 1:ngroups
             # assign is not necessary
+            print("=")
             centers, objv = opt_functions.global_OPT3_LD(X[:,groups[i]], k, 
                 lambda[:,:,i:(i+1)], lower, upper, true);
             centers_gp[:,:,i] = centers; # i for groups and centers are corresponding to i+1 of lambda
             LB += objv;
         end
+        println("")
         # update lambda before the new loop
         # here we only need to update lambda[:,:,2:ngroups] (actaully is 1:(ngroups-1))
         lambda[:,:,2:ngroups] = updateLambda_subgrad_2(vec(lambda[:,:,2:ngroups]), qUB, LB, centers_gp, alpha)
@@ -288,7 +290,7 @@ function getLowerBound_adptGp_LD(X, k, centers, parent_groups=nothing, lower=not
     d, n = size(X);
     ngroups = round(Int, n/k/10); # determine the number of groups, 10*k points in each group
     groups = kmeans_group(X, assign, ngroups)
-    
+    println(length.(groups))
     # calculate the lower bound with largrangean decomposition
     LB = LD_2(X, d, k, ngroups, groups, obj_ub, lower, upper)
 
