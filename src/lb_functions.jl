@@ -178,6 +178,7 @@ function getLowerBound_LD(X, k, centers, lower=nothing, upper=nothing)
             push!(groups[ng], cid[j]);
         end
     end
+    println(length.(groups))
 
     # largrangean decomposition
     LB = LD_2(X, d, k, ngroups, groups, obj_ub, lower, upper)
