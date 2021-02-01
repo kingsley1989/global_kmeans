@@ -14,7 +14,7 @@ using opt_functions
 function getLowerBound_Test(X, k, centers, lower=nothing, upper=nothing)
     ~, assign = obj_assign(centers, X); # objv as a qUB
     d, n = size(X);
-    ngroups = round(Int, n/k/10); # determine the number of groups, 10*k points in each group
+    ngroups = round(Int, n/k/5); # determine the number of groups, 10*k points in each group
     
     groups = [[] for i=1:ngroups];
     ng = 0; # heuristic improve grouping 
@@ -166,7 +166,7 @@ end
 function getLowerBound_LD(X, k, centers, lower=nothing, upper=nothing)
     obj_ub, assign = obj_assign(centers, X); # objv as a qUB
     d, n = size(X);
-    ngroups = round(Int, n/k/10); # determine the number of groups, 10*k points in each group
+    ngroups = round(Int, n/k/5); # determine the number of groups, 10*k points in each group
     
     groups = [[] for i=1:ngroups];
     ng = 0; # heuristic improve grouping 
@@ -260,7 +260,7 @@ function getLowerBound_adptGp(X, k, centers, parent_groups=nothing, lower=nothin
     # first generate new grouping based the assignment of current centers
     ~, assign = obj_assign(centers, X);
     d, n = size(X);
-    ngroups = round(Int, n/k/10); # determine the number of groups, 10*k points in each group
+    ngroups = round(Int, n/k/5); # determine the number of groups, 10*k points in each group
     groups = kmeans_group(X, assign, ngroups)
     # calculate the lower bound
     LB = 0
@@ -295,7 +295,7 @@ function getLowerBound_adptGp_LD(X, k, centers, parent_groups=nothing, lower=not
     # first generate new grouping based the assignment of current centers
     obj_ub, assign = obj_assign(centers, X);
     d, n = size(X);
-    ngroups = round(Int, n/k/10); # determine the number of groups, 10*k points in each group
+    ngroups = round(Int, n/k/5); # determine the number of groups, 10*k points in each group
     groups = kmeans_group(X, assign, ngroups)
     println(length.(groups))
     # calculate the lower bound with largrangean decomposition
