@@ -34,9 +34,11 @@ function getLowerBound_Test(X, k, centers, lower=nothing, upper=nothing)
     LB = 0
     for i = 1:ngroups
         # assign is not necessary
+        print("=")
     	centers, objv = global_OPT3(X[:,groups[i]], k, lower, upper, true);
 	    LB += objv;
     end
+    println("")
     return LB
 end
 
@@ -264,9 +266,11 @@ function getLowerBound_adptGp(X, k, centers, parent_groups=nothing, lower=nothin
     LB = 0
     for i = 1:ngroups
         # assign is not necessary
+        print("=")
     	centers, objv = global_OPT3(X[:,groups[i]], k, lower, upper, true);
 	    LB += objv;
     end
+    println("")
 
     # check if LB with new grouping lower than the LB of parent node
     if LB < glbLB # if LB is smaller, than adopt the parent grouping
@@ -275,9 +279,11 @@ function getLowerBound_adptGp(X, k, centers, parent_groups=nothing, lower=nothin
         LB_n = 0
         for i = 1:ngroups
             # assign is not necessary
+            print("=")
             centers, objv = global_OPT3(X[:,groups[i]], k, lower, upper, true);
             LB_n += objv;
         end
+        println("")
         LB = max(LB, LB_n)
     end
     return LB, groups

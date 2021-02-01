@@ -5,7 +5,7 @@ using opt_functions
 
 
 function getUpperBound(X, k, lower=nothing, upper=nothing, tol = 0)
-    n_trial = 3
+    n_trial = 5
     if lower === nothing	
         result = kmeans(X, k)
     	UB = result.totalcost
@@ -26,15 +26,15 @@ function getUpperBound(X, k, lower=nothing, upper=nothing, tol = 0)
         end=#
     else
 	    centers, ~, UB = local_OPT(X, k, lower, upper)
-        for i = 2:n_trial
+        #= for i = 2:n_trial
             print("*")
             centers_trial, ~, UB_trial = local_OPT(X, k, lower, upper)
             if UB_trial <= UB - tol
                 UB = UB_trial
                 centers = centers_trial
             end
-        end
-        println("")
+        end 
+        println("") =#
     end
     return centers, UB
 end
