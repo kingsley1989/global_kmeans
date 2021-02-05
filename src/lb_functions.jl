@@ -295,7 +295,7 @@ function getLowerBound_adptGp_LD(X, k, centers, parent_groups=nothing, lower=not
     # first generate new grouping based the assignment of current centers
     obj_ub, assign = obj_assign(centers, X);
     d, n = size(X);
-    ngroups = round(Int, n/k/5); # determine the number of groups, 10*k points in each group
+    ngroups = round(Int, n/k/10); # determine the number of groups, 10*k points in each group
     groups = kmeans_group(X, assign, ngroups)
     println(length.(groups))
     # calculate the lower bound with largrangean decomposition
