@@ -41,17 +41,21 @@ t_adp_LD = @elapsed centers_adp_LD, objv_adp_LD, calcInfo_adp_LD = bb_functions.
 t_g = @elapsed centers_g, objv_g, assign_g, gap_g = global_OPT_base(data, k)
 
 # kmeans results for comparison
+Random.seed!(23)
 trail = 100
-sum_nmi = 0
-sum_cost = 0
+nmi_km_list = []
+objv_km_list = []
 for i = 1:trail
     t_km = @elapsed rlt_km = kmeans(data, k)
-    nmi_km, vi_km, ari_km = cluster_eval(rlt_km.assignments, label)
-    sum_nmi = sum_nmi+nmi_km
-    sum_cost = sum_cost+rlt_km.totalcost
+    nmi_km, ~, ~ = cluster_eval(rlt_km.assignments, label)
+    push!(nmi_km_list, nmi_km)
+    push!(objv_km_list, rlt_km.totalcost)
 end
-nmi_km_mean = sum_nmi/trail
-cost_km_mean = sum_cost/trail
+nmi_km_mean = mean(nmi_km_list)
+objv_km_mean = mean(objv_km_list)
+objv_km_max, nmi_km_max = findmax(objv_km_list)
+objv_km_min, nmi_km_min = findmin(objv_km_list)
+println([nmi_km_list[nmi_km_max] nmi_km_mean nmi_km_list[nmi_km_min]; objv_km_max objv_km_mean objv_km_min])
 
 # test of km for reference (temporal way)
 rlt_km = kmeans(data, k)
@@ -74,6 +78,6 @@ eval_adp_LD = nestedEval(data, label, centers_adp_LD, objv_adp_LD, rlt_km) # eva
 # nestRlt save results for comparison plot. Each row represents: time, gap, nmi, vi, ari, final_cost
 timeGapRlt = [[t_g t t_LD t_adp t_adp_LD]; [gap_g calcInfo[end][end] calcInfo_LD[end][end] calcInfo_adp[end][end] calcInfo_adp_LD[end][end]]]
 
-evalRlt = [eval_CPLEX[:,end] eval_orig[:,end] eval_LD[:,end] eval_adp[:,end] eval_adp_LD[:,end] [nmi_km_mean; vi_km; ari_km; cost_km_mean]]
+evalRlt = [eval_CPLEX[:,end] eval_orig[:,end] eval_LD[:,end] eval_adp[:,end] eval_adp_LD[:,end] [nmi_km_mean; vi_km; ari_km; objv_km_mean]]
 
 save("result/testing_seed.jld", "data", data,  "timeGapRlt", timeGapRlt, "evalRlt", evalRlt)

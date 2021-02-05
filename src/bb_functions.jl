@@ -23,7 +23,7 @@ Node() = Node(nothing, nothing, -1, -1e10, nothing)
 maxiter = 5000
 tol = 1e-6
 mingap = 1e-3
-time_lapse = 14400 # 4 hours
+time_lapse = 43200 # 4 hours
 
 
 # function to print the node in a neat form

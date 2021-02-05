@@ -14,16 +14,16 @@ using data_process, bb_functions, opt_functions
 ################# Main Process Program Body #################
 #############################################################
 
-Random.seed!(120) #120
-clst_n = 300 # number of points in a cluster 
-k = 4
+Random.seed!(1) #120
+clst_n = 100 # number of points in a cluster 
+k = 3
 data = Array{Float64}(undef, 2, clst_n*k) # initial data array (clst_n*k)*2 
 label = Array{Float64}(undef, clst_n*k) # label is empty vector 1*(clst_n*k)
-mu = reshape(sample(1:30, k*2), k, 2) #  sig: 1-5 # [20 20; 2 1; 7 3] # [60 8; 2 1; 200 200] # 
+mu = [20 20; 2 1; 7 3] # reshape(sample(1:20, k*2), k, 2) #  sig: 1-5 # [60 8; 2 1; 200 200] # 
 # sig = [[0.7 0; 0 0.7],[1.5 0;0 1.5],[0.2 0;0 0.6]]
 # we can not do with a = [a, i] refer to Scope of Variables in julia documentation
 for i = 1:k 
-    sig = round.(sig_gen(sample(1:10, 2)))
+    sig = round.(sig_gen(sample(1:5, 2)))
     print(sig)
     clst = rand(MvNormal(mu[i,:], sig), clst_n) # data is 2*clst_n
     data[:,((i-1)*clst_n+1):(i*clst_n)] = clst
@@ -51,17 +51,21 @@ t_adp_LD = @elapsed centers_adp_LD, objv_adp_LD, calcInfo_adp_LD = bb_functions.
 t_g = @elapsed centers_g, objv_g, assign_g, gap_g = global_OPT_base(data, k)
 
 # kmeans results for comparison
+Random.seed!(0)
 trail = 100
-sum_nmi = 0
-sum_cost = 0
+nmi_km_list = []
+objv_km_list = []
 for i = 1:trail
     t_km = @elapsed rlt_km = kmeans(data, k)
-    nmi_km, vi_km, ari_km = cluster_eval(rlt_km.assignments, label)
-    sum_nmi = sum_nmi+nmi_km
-    sum_cost = sum_cost+rlt_km.totalcost
+    nmi_km, ~, ~ = cluster_eval(rlt_km.assignments, label)
+    push!(nmi_km_list, nmi_km)
+    push!(objv_km_list, rlt_km.totalcost)
 end
-nmi_km_mean = sum_nmi/trail
-cost_km_mean = sum_cost/trail
+nmi_km_mean = mean(nmi_km_list)
+objv_km_mean = mean(objv_km_list)
+objv_km_max, nmi_km_max = findmax(objv_km_list)
+objv_km_min, nmi_km_min = findmin(objv_km_list)
+println([nmi_km_list[nmi_km_max] nmi_km_mean nmi_km_list[nmi_km_min]; objv_km_max objv_km_mean objv_km_min])
 
 # test of km for reference (temporal way)
 rlt_km = kmeans(data, k)
@@ -84,6 +88,6 @@ eval_adp_LD = nestedEval(data, label, centers_adp_LD, objv_adp_LD, rlt_km) # eva
 # nestRlt save results for comparison plot. Each row represents: time, gap, nmi, vi, ari, final_cost
 timeGapRlt = [[t_g t t_LD t_adp t_adp_LD]; [gap_g calcInfo[end][end] calcInfo_LD[end][end] calcInfo_adp[end][end] calcInfo_adp_LD[end][end]]]
 
-evalRlt = [eval_CPLEX[:,end] eval_orig[:,end] eval_LD[:,end] eval_adp[:,end] eval_adp_LD[:,end] [nmi_km_mean; vi_km; ari_km; cost_km_mean]]
+evalRlt = [eval_CPLEX[:,end] eval_orig[:,end] eval_LD[:,end] eval_adp[:,end] eval_adp_LD[:,end] [nmi_km_mean; vi_km; ari_km; objv_km_mean]]
 
 save("result/testing_toy_$k-$clst_n.jld", "data", data,  "timeGapRlt", timeGapRlt, "evalRlt", evalRlt)

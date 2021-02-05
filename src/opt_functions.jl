@@ -100,7 +100,7 @@ function global_OPT_base(X, k, lower=nothing, upper=nothing, mute=false)
     if mute
         set_optimizer_attribute(m, "CPX_PARAM_SCRIND", 0)
     end
-    set_optimizer_attribute(m, "CPX_PARAM_TILIM", 14400) # maximum runtime limit is 4 hours
+    set_optimizer_attribute(m, "CPX_PARAM_TILIM", 43200) # maximum runtime limit is 4 hours
     @variable(m, lower[t,i] <= centers[t in 1:d, i in 1:k] <= upper[t,i], start=rand());
     @constraint(m, [j in 1:k-1], centers[1,j]<= centers[1,j+1])
     @variable(m, 0<=dmat[i in 1:k, j in 1:n]<=dmat_max[i,j], start=rand());
