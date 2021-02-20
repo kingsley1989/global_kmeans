@@ -7,6 +7,10 @@ using opt_functions
 
 #export getLowerBound_adptGp
 
+# function to calcuate the median value of a vector
+function med(a,b,c)
+    return a+b+c-max(a,b,c)-min(a,b,c)
+end
 
 ############## Original lower bound calculation ##############
 
@@ -42,6 +46,42 @@ function getLowerBound_Test(X, k, centers, lower=nothing, upper=nothing)
     return LB
 end
 
+############## Lower bound calculation with closed-form ##############
+function getLowerBound_analytic(X, k, lower=nothing, upper=nothing)
+    d, n = size(X)
+    lower_data = Vector{Float64}(undef, d)
+    upper_data = Vector{Float64}(undef, d)
+    for i = 1:d
+        lower_data[i] = minimum(X[i,:])
+        upper_data[i] = maximum(X[i,:])
+    end
+    lower_data = repeat(lower_data, 1, k)
+    upper_data = repeat(upper_data, 1, k)
+    if lower === nothing
+        lower = lower_data
+        upper = upper_data
+    else
+        lower = min.(upper.-1e-4, max.(lower, lower_data))
+        upper = max.(lower.+1e-4, min.(upper, upper_data))
+    end
+    # get the mid value of each mu for each cluster
+    # start calculating the lower bound (distance of x_s to its closest mu)
+    LB = 0
+    for s in 1:n
+        # the way median is precalculated is faster 
+        x_mat = repeat(X[:,s], 1, k)
+        mu = med.(lower[:,:], x_mat[:,:], upper[:,:])
+        min_dist = Inf
+        for i in 1:k
+            dist = sum((X[t,s] - mu[t,i])^2 for t in 1:d)
+            if dist <= min_dist
+                min_dist = dist
+            end
+        end
+        LB += min_dist
+    end
+    return LB
+end
 
 ############## Lower bound calculation with largrangean decomposition ##############
 

@@ -1,6 +1,7 @@
 module data_process
 
 using RDatasets, DataFrames, CSV
+using CategoricalArrays
 using Clustering
 using Random
 using LinearAlgebra
@@ -23,7 +24,7 @@ function data_preprocess(dataname, datapackage = "datasets", path=nothing, missi
     # process to separate features and label
     v = data[:,ncol(data)]
     if v isa CategoricalArray{String,1,UInt8}
-        v = CategoricalArrays.order(v.pool)[v.refs]
+        v =  (1:length(levels(v.pool)))[v.refs]
     else # change arbitary numerical labels to label from 1
         lbl = zeros(size(data)[1],1)
         for (idx,val) in enumerate(unique(v))

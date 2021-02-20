@@ -69,7 +69,6 @@ end
 
 function global_OPT_base(X, k, lower=nothing, upper=nothing, mute=false)
     d, n = size(X)
-    d, n = size(X)
     lower_data = Vector{Float64}(undef, d)
     upper_data = Vector{Float64}(undef, d)
     for i = 1:d

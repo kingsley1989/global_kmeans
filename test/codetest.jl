@@ -1,6 +1,6 @@
 using RDatasets, DataFrames, CSV
 using Random, Distributions
-using Plots, StatPlots
+using Plots#, StatPlots
 using Clustering, Distances
 using MLDataUtils#, MLBase
 
@@ -43,11 +43,13 @@ scatter(data[1,:], data[2,:], markercolor=label, legend = false, title = "My Sca
 
 
 result = kmeans(data, k)
-@time test_ctrl = lb_functions.getLowerBound_Test(data, k, result.centers)
 
 ~, assign = obj_assign(result.centers, data);
 d, n = size(data);
 ngroups = round(Int, n/k/10); # determine the number of groups, 10*k points in each group
 groups = lb_functions.kmeans_group(data, assign, ngroups)
+
+@time test_ctrl = lb_functions.getLowerBound_analytic(data, k) # closed-form lower bound calcualting
+@time test_ctrl = lb_functions.getLowerBound_Test(data, k, result.centers) # basic lower bound calculating
 @time test_adpt = lb_functions.getLowerBound_adptGp(data, k, result.centers, groups, nothing, nothing, test_ctrl)
 @time test_ld = lb_functions.getLowerBound_LD(data, k, result.centers)
