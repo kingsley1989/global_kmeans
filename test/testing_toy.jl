@@ -15,15 +15,15 @@ using data_process, bb_functions, opt_functions
 #############################################################
 
 Random.seed!(1) #120
-clst_n = 700 # number of points in a cluster 
+clst_n = 100 # number of points in a cluster 
 k = 3
 data = Array{Float64}(undef, 2, clst_n*k) # initial data array (clst_n*k)*2 
 label = Array{Float64}(undef, clst_n*k) # label is empty vector 1*(clst_n*k)
-mu = [60 8; 2 1; 200 200] # [20 20; 2 1; 7 3] # reshape(sample(1:20, k*2), k, 2) #  sig: 1-5 # 
+mu = reshape(sample(1:20, k*2), k, 2) # [60 8; 2 1; 200 200] # [20 20; 2 1; 7 3] # sig: 1-5 # 
 # sig = [[0.7 0; 0 0.7],[1.5 0;0 1.5],[0.2 0;0 0.6]]
 # we can not do with a = [a, i] refer to Scope of Variables in julia documentation
 for i = 1:k 
-    sig = round.(sig_gen(sample(1:500, 2)))
+    sig = round.(sig_gen(sample(1:5, 2)))
     print(sig)
     clst = rand(MvNormal(mu[i,:], sig), clst_n) # data is 2*clst_n
     data[:,((i-1)*clst_n+1):(i*clst_n)] = clst
@@ -49,6 +49,7 @@ t_adp_LD = @elapsed centers_adp_LD, objv_adp_LD, calcInfo_adp_LD = bb_functions.
 
 # global optimization using CPLEX directly objv_lg is the lower bound of current solution
 t_g = @elapsed centers_g, objv_g, assign_g, gap_g = global_OPT_base(data, k)
+t_ln = @elapsed centers_ln, objv_ln, assign_ln, gap_ln = global_OPT_linear(data, k, nothing, nothing, false, 15)
 
 # kmeans results for comparison
 Random.seed!(0)
