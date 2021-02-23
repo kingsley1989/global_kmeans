@@ -20,7 +20,7 @@ end
 Node() = Node(nothing, nothing, -1, -1e10, nothing)
 
 
-maxiter = 5000
+maxiter = 200000
 tol = 1e-6
 mingap = 1e-3
 time_lapse = 43200 # 4 hours
