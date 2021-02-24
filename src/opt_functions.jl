@@ -6,7 +6,7 @@ using JuMP
 using Ipopt, CPLEX#, SCIP
 using Random
 
-export obj_assign, local_OPT, global_OPT3, global_OPT_base, global_OPT_linear
+export obj_assign, local_OPT, global_OPT3, global_OPT_base, global_OPT_linear, linear_OPT
 
 
 function obj_assign(centers, X)
@@ -119,7 +119,7 @@ function global_OPT_base(X, k, lower=nothing, upper=nothing, mute=false)
 end
 
 # nlines represents 2*nlines lines added as the outer approximation for the problem
-function global_OPT_linear(X, k, lower=nothing, upper=nothing, mute=false, nlines = 3)
+function linear_OPT(X, k, lower=nothing, upper=nothing, mute=false, nlines = 3)
     d, n = size(X)
     lower_data = Vector{Float64}(undef, d)
     upper_data = Vector{Float64}(undef, d)
@@ -175,10 +175,17 @@ function global_OPT_linear(X, k, lower=nothing, upper=nothing, mute=false, nline
     @objective(m, Min, sum(costs[j] for j in 1:n));
     optimize!(m);
     centers = value.(centers)
+    LB = getobjectivevalue(m)
+    return centers, LB, m
+end
+
+function global_OPT_linear(X, k, lower=nothing, upper=nothing, mute=false, nlines = 3)
+    centers, ~, m = linear_OPT(X, k, lower, upper, mute, nlines)
     gap = relative_gap(m) # get the relative gap for cplex solver
     objv, assign = obj_assign(centers, X) # here the objv should be a lower bound of CPLEX
     return centers, objv, assign, gap
 end
+
 
 function global_OPT3(X, k, lower=nothing, upper=nothing, mute=false)
     d, n = size(X)

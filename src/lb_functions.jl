@@ -84,63 +84,8 @@ function getLowerBound_analytic(X, k, lower=nothing, upper=nothing)
 end
 
 ############## Lower bound calculation with linearized constraints ##############
-function getLowerBound_linear(X, k, lower=nothing, upper=nothing, mute=false, nlines = 3)
-    d, n = size(X)
-    lower_data = Vector{Float64}(undef, d)
-    upper_data = Vector{Float64}(undef, d)
-    for i = 1:d
-        lower_data[i] = minimum(X[i,:])
-        upper_data[i] = maximum(X[i,:])
-    end
-    lower_data = repeat(lower_data, 1, k)
-    upper_data = repeat(upper_data, 1, k)
-    if lower === nothing
-        lower = lower_data
-        upper = upper_data
-    else
-        lower = min.(upper.-1e-4, max.(lower, lower_data))
-        upper = max.(lower.+1e-4, min.(upper, upper_data))
-    end
-    dmat_max = zeros(k,n)
-    for j = 1:n
-    	for i = 1:k
-            max_distance = 0
-            for t = 1:d
-                max_distance += max((X[t,j]-lower[t,i])^2, (X[t,j]-upper[t,i])^2)
-            end	
-            dmat_max[i,j] = max_distance
-	    end
-    end    
-
-    m = Model(CPLEX.Optimizer);
-    if mute
-        set_optimizer_attribute(m, "CPX_PARAM_SCRIND", 0)
-    end
-    set_optimizer_attribute(m, "CPX_PARAM_TILIM", 43200) # maximum runtime limit is 4 hours
-    @variable(m, lower[t,i] <= centers[t in 1:d, i in 1:k] <= upper[t,i], start=rand());
-    @constraint(m, [j in 1:k-1], centers[1,j]<= centers[1,j+1])
-
-    @variable(m, 0<=dmat[i in 1:k, j in 1:n]<=dmat_max[i,j], start=rand());
-    @variable(m, lower[t,i]^2 <= w[t in 1:d, i in 1:k] <= upper[t,i]^2) # add the horizontal line of the lower bottom line bound 
-    @constraint(m, [i in 1:k, j in 1:n], dmat[i,j] >= sum((X[t,j]^2 - 2*X[t,j]*centers[t,i] + w[t,i]) for t in 1:d ));
-    itval = (upper-lower)./2/nlines # total 2*nlines, separate the range into 2*nlines sections
-    for line in 0:(nlines-1)
-        lwr = lower+itval.*line
-        upr = upper-itval.*line
-        @constraint(m, [t in 1:d, i in 1:k], 2*lwr[t,i]*centers[t,i]-lwr[t,i]^2 <= w[t,i])
-        @constraint(m, [t in 1:d, i in 1:k], 2*upr[t,i]*centers[t,i]-upr[t,i]^2 <= w[t,i])
-    end
-
-    @variable(m, lambda[1:k, 1:n], Bin)
-    @constraint(m, [j in 1:n], sum(lambda[i,j] for i in 1:k) == 1);
-    @variable(m, costs[1:n], start=rand());
-    @constraint(m, [i in 1:k, j in 1:n], costs[j] - dmat[i,j] >= -dmat_max[i,j]*(1-lambda[i,j]))
-    @constraint(m, [i in 1:k, j in 1:n], costs[j] - dmat[i,j] <= dmat_max[i,j]*(1-lambda[i,j]))
-
-    @objective(m, Min, sum(costs[j] for j in 1:n));
-    optimize!(m);
-    centers = value.(centers)
-    LB = getobjectivevalue(m)
+function getLowerBound_linear(X, k, lower=nothing, upper=nothing, nlines = 3)
+    centers, LB, ~ = linear_OPT(X, k, lower, upper, false, nlines)
     return LB
 end
 

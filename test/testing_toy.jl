@@ -15,7 +15,7 @@ using data_process, bb_functions, opt_functions
 #############################################################
 
 Random.seed!(1) #120
-clst_n = 100 # number of points in a cluster 
+clst_n = 50 # number of points in a cluster 
 k = 3
 data = Array{Float64}(undef, 2, clst_n*k) # initial data array (clst_n*k)*2 
 label = Array{Float64}(undef, clst_n*k) # label is empty vector 1*(clst_n*k)
@@ -49,7 +49,7 @@ t_adp_LD = @elapsed centers_adp_LD, objv_adp_LD, calcInfo_adp_LD = bb_functions.
 
 # global optimization using CPLEX directly objv_lg is the lower bound of current solution
 t_g = @elapsed centers_g, objv_g, assign_g, gap_g = global_OPT_base(data, k)
-t_ln = @elapsed centers_ln, objv_ln, assign_ln, gap_ln = global_OPT_linear(data, k, nothing, nothing, false, 15)
+t_ln = @elapsed centers_ln, objv_ln, assign_ln, gap_ln = global_OPT_linear(data, k, nothing, nothing, false, 100)
 
 # kmeans results for comparison
 Random.seed!(0)
