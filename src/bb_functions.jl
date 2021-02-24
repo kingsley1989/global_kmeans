@@ -97,7 +97,6 @@ function branch_bound(X, k)
     end
     lower_data = repeat(lower_data, 1, k) # first arg repeat on row, second repeat on col
     upper_data = repeat(upper_data, 1, k)
-    # insert OBBT function here to tightening the range of each variable
 
     # generated the initial groups for subgrouping optimization
     # in this version of bb function, groups information is not needed
@@ -144,6 +143,7 @@ function branch_bound(X, k)
 
         if iter == 1
             node_centers, node_UB = ub_functions.getUpperBound(X, k, nothing, nothing, tol)
+            # insert OBBT function here to tightening the range of each variable
         else
             node_centers, node_UB = ub_functions.getUpperBound(X, k, node.lower, node.upper, tol)
         end    

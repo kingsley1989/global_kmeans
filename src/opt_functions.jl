@@ -29,9 +29,7 @@ function obj_assign(centers, X)
     return sum(costs), assign # sum costs is the total sse, assign is the current clustering assignment
 end
 
-
-function local_OPT(X, k, lower=nothing, upper=nothing)
-    d, n = size(X)
+function init_bound(X, d, k, lower=nothing, upper=nothing)
     lower_data = Vector{Float64}(undef, d)
     upper_data = Vector{Float64}(undef, d)
     for i = 1:d # get the feasible region of center
@@ -48,6 +46,13 @@ function local_OPT(X, k, lower=nothing, upper=nothing)
         lower = min.(upper.-1e-4, max.(lower, lower_data))
         upper = max.(lower.+1e-4, min.(upper, upper_data))
     end
+    return lower, upper
+end
+
+
+function local_OPT(X, k, lower=nothing, upper=nothing)
+    d, n = size(X)
+    lower, upper = init_bound(X, d, k, lower, upper)
 
     m = Model(Ipopt.Optimizer);
     set_optimizer_attribute(m, "print_level", 0);
@@ -69,21 +74,8 @@ end
 
 function global_OPT_base(X, k, lower=nothing, upper=nothing, mute=false)
     d, n = size(X)
-    lower_data = Vector{Float64}(undef, d)
-    upper_data = Vector{Float64}(undef, d)
-    for i = 1:d
-        lower_data[i] = minimum(X[i,:])
-        upper_data[i] = maximum(X[i,:])
-    end
-    lower_data = repeat(lower_data, 1, k)
-    upper_data = repeat(upper_data, 1, k)
-    if lower === nothing
-        lower = lower_data
-        upper = upper_data
-    else
-        lower = min.(upper.-1e-4, max.(lower, lower_data))
-        upper = max.(lower.+1e-4, min.(upper, upper_data))
-    end
+    lower, upper = init_bound(X, d, k, lower, upper)
+
     dmat_max = zeros(k,n)
     for j = 1:n
     	for i = 1:k
@@ -121,21 +113,8 @@ end
 # nlines represents 2*nlines lines added as the outer approximation for the problem
 function linear_OPT(X, k, lower=nothing, upper=nothing, mute=false, nlines = 3)
     d, n = size(X)
-    lower_data = Vector{Float64}(undef, d)
-    upper_data = Vector{Float64}(undef, d)
-    for i = 1:d
-        lower_data[i] = minimum(X[i,:])
-        upper_data[i] = maximum(X[i,:])
-    end
-    lower_data = repeat(lower_data, 1, k)
-    upper_data = repeat(upper_data, 1, k)
-    if lower === nothing
-        lower = lower_data
-        upper = upper_data
-    else
-        lower = min.(upper.-1e-4, max.(lower, lower_data))
-        upper = max.(lower.+1e-4, min.(upper, upper_data))
-    end
+    lower, upper = init_bound(X, d, k, lower, upper)
+
     dmat_max = zeros(k,n)
     for j = 1:n
     	for i = 1:k
@@ -189,22 +168,8 @@ end
 
 function global_OPT3(X, k, lower=nothing, upper=nothing, mute=false)
     d, n = size(X)
-    d, n = size(X)
-    lower_data = Vector{Float64}(undef, d)
-    upper_data = Vector{Float64}(undef, d)
-    for i = 1:d
-        lower_data[i] = minimum(X[i,:])
-        upper_data[i] = maximum(X[i,:])
-    end
-    lower_data = repeat(lower_data, 1, k)
-    upper_data = repeat(upper_data, 1, k)
-    if lower === nothing
-        lower = lower_data
-        upper = upper_data
-    else
-        lower = min.(upper.-1e-4, max.(lower, lower_data))
-        upper = max.(lower.+1e-4, min.(upper, upper_data))
-    end
+    lower, upper = init_bound(X, d, k, lower, upper)
+
     dmat_max = zeros(k,n)
     for j = 1:n
     	for i = 1:k
@@ -218,7 +183,7 @@ function global_OPT3(X, k, lower=nothing, upper=nothing, mute=false)
 
     m = Model(CPLEX.Optimizer);
     if mute
-        set_optimizer_attribute(m, "CPX_PARAM_SCRIND", 0)
+        set_optimizer_attribute(m, "CPX_PARAM_SCRIND", 0) # this varible control the print of CPLEX solving process
     end
     set_optimizer_attribute(m, "CPX_PARAM_TILIM", 900) # maximum runtime limit is 1 hours
     set_optimizer_attribute(m, "CPX_PARAM_EPGAP", 0.1) # set the relative gap to 0.1
@@ -245,22 +210,8 @@ end
 # here the labmda is the largrange multiplier
 function global_OPT3_LD(X, k, lambda, lower=nothing, upper=nothing, mute=false)
     d, n = size(X)
-    d, n = size(X)
-    lower_data = Vector{Float64}(undef, d)
-    upper_data = Vector{Float64}(undef, d)
-    for i = 1:d
-        lower_data[i] = minimum(X[i,:])
-        upper_data[i] = maximum(X[i,:])
-    end
-    lower_data = repeat(lower_data, 1, k)
-    upper_data = repeat(upper_data, 1, k)
-    if lower === nothing
-        lower = lower_data
-        upper = upper_data
-    else
-        lower = min.(upper.-1e-4, max.(lower, lower_data))
-        upper = max.(lower.+1e-4, min.(upper, upper_data))
-    end
+    lower, upper = init_bound(X, d, k, lower, upper)
+    
     dmat_max = zeros(k,n)
     for j = 1:n
     	for i = 1:k
