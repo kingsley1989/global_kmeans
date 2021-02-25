@@ -50,6 +50,8 @@ ngroups = round(Int, n/k/10); # determine the number of groups, 10*k points in e
 groups = lb_functions.kmeans_group(data, assign, ngroups)
 
 lower = obbt.OBBT_min(data, k, result.totalcost, nothing, nothing, true, 2)
+upper = obbt.OBBT_max(data, k, result.totalcost, nothing, nothing, true, 2)
+
 @time test_anly = lb_functions.getLowerBound_analytic(data, k) # closed-form lower bound calcualting
 @time test_ctrl = lb_functions.getLowerBound_Test(data, k, result.centers) # basic lower bound calculating
 @time test_adpt = lb_functions.getLowerBound_adptGp(data, k, result.centers, groups, nothing, nothing, test_ctrl)

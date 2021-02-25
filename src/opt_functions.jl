@@ -9,6 +9,9 @@ using Random
 export obj_assign, local_OPT, global_OPT3, global_OPT_base, global_OPT_linear, linear_OPT
 
 
+time_lapse = 900 # 4 hours
+
+
 function obj_assign(centers, X)
     d, n = size(X)   	 
     k = size(centers, 2)	 
@@ -91,7 +94,7 @@ function global_OPT_base(X, k, lower=nothing, upper=nothing, mute=false)
     if mute
         set_optimizer_attribute(m, "CPX_PARAM_SCRIND", 0)
     end
-    set_optimizer_attribute(m, "CPX_PARAM_TILIM", 43200) # maximum runtime limit is 4 hours
+    set_optimizer_attribute(m, "CPX_PARAM_TILIM", time_lapse*3) # maximum runtime limit is time_lapse*3 or set to 4/12 hours
     @variable(m, lower[t,i] <= centers[t in 1:d, i in 1:k] <= upper[t,i], start=rand());
     @constraint(m, [j in 1:k-1], centers[1,j]<= centers[1,j+1])
     @variable(m, 0<=dmat[i in 1:k, j in 1:n]<=dmat_max[i,j], start=rand());
@@ -130,7 +133,7 @@ function linear_OPT(X, k, lower=nothing, upper=nothing, mute=false, nlines = 3)
     if mute
         set_optimizer_attribute(m, "CPX_PARAM_SCRIND", 0)
     end
-    set_optimizer_attribute(m, "CPX_PARAM_TILIM", 43200) # maximum runtime limit is 4 hours
+    set_optimizer_attribute(m, "CPX_PARAM_TILIM", time_lapse) # maximum runtime limit is 4 hours
     @variable(m, lower[t,i] <= centers[t in 1:d, i in 1:k] <= upper[t,i], start=rand());
     @constraint(m, [j in 1:k-1], centers[1,j]<= centers[1,j+1])
 
@@ -185,7 +188,7 @@ function global_OPT3(X, k, lower=nothing, upper=nothing, mute=false)
     if mute
         set_optimizer_attribute(m, "CPX_PARAM_SCRIND", 0) # this varible control the print of CPLEX solving process
     end
-    set_optimizer_attribute(m, "CPX_PARAM_TILIM", 900) # maximum runtime limit is 1 hours
+    set_optimizer_attribute(m, "CPX_PARAM_TILIM", time_lapse) # maximum runtime limit is 1 hours
     set_optimizer_attribute(m, "CPX_PARAM_EPGAP", 0.1) # set the relative gap to 0.1
     @variable(m, lower[t,i] <= centers[t in 1:d, i in 1:k] <= upper[t,i], start=rand());
     @constraint(m, [j in 1:k-1], centers[1,j]<= centers[1,j+1])
@@ -227,7 +230,7 @@ function global_OPT3_LD(X, k, lambda, lower=nothing, upper=nothing, mute=false)
     if mute
         set_optimizer_attribute(m, "CPX_PARAM_SCRIND", 0)
     end
-    set_optimizer_attribute(m, "CPX_PARAM_TILIM", 900) # maximum runtime limit is 1 hours
+    set_optimizer_attribute(m, "CPX_PARAM_TILIM", time_lapse) # maximum runtime limit is 1 hours
     set_optimizer_attribute(m, "CPX_PARAM_EPGAP", 0.1) # set the relative gap to 0.1
     @variable(m, lower[t,i] <= centers[t in 1:d, i in 1:k] <= upper[t,i], start=rand());
     @constraint(m, [j in 1:k-1], centers[1,j]<= centers[1,j+1])

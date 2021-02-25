@@ -7,8 +7,9 @@ using Ipopt, CPLEX#, SCIP
 using Random
 using opt_functions
 
-export OBBT_min
+export OBBT_min, OBBT_max
 
+time_lapse = 600 # 10 mins
 
 # nlines represents 2*nlines lines added as the outer approximation for the problem
 function OBBT_min(X, k, UB, lower=nothing, upper=nothing, mute=false, nlines = 1)
@@ -36,7 +37,7 @@ function OBBT_min(X, k, UB, lower=nothing, upper=nothing, mute=false, nlines = 1
             if mute
                 set_optimizer_attribute(m, "CPX_PARAM_SCRIND", 0)
             end
-            set_optimizer_attribute(m, "CPX_PARAM_TILIM", 500) # maximum runtime limit is 4 hours
+            set_optimizer_attribute(m, "CPX_PARAM_TILIM", time_lapse) # maximum runtime limit is 10 mins
             @variable(m, lower[t,i] <= centers[t in 1:d, i in 1:k] <= upper[t,i], start=rand());
             @constraint(m, [j in 1:k-1], centers[1,j]<= centers[1,j+1])
 
@@ -60,7 +61,7 @@ function OBBT_min(X, k, UB, lower=nothing, upper=nothing, mute=false, nlines = 1
 
             @objective(m, Min, centers[dim, clst]);
             optimize!(m);
-            println(result_count(m))
+            #println(result_count(m))
             if result_count(m) >= 1
                 lwr_center[dim, clst] = getobjectivevalue(m)
             else    
@@ -99,7 +100,7 @@ function OBBT_max(X, k, UB, lower=nothing, upper=nothing, mute=false, nlines = 1
             if mute
                 set_optimizer_attribute(m, "CPX_PARAM_SCRIND", 0)
             end
-            set_optimizer_attribute(m, "CPX_PARAM_TILIM", 500) # maximum runtime limit is 4 hours
+            set_optimizer_attribute(m, "CPX_PARAM_TILIM", time_lapse) # maximum runtime limit is 10 mins
             @variable(m, lower[t,i] <= centers[t in 1:d, i in 1:k] <= upper[t,i], start=rand());
             @constraint(m, [j in 1:k-1], centers[1,j]<= centers[1,j+1])
 

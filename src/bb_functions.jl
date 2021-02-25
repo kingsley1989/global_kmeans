@@ -5,7 +5,7 @@ using Printf
 using JuMP
 using Ipopt, CPLEX#, SCIP
 using Random
-using ub_functions, lb_functions
+using ub_functions, lb_functions, obbt
 
 export Node, branch_bound
 
@@ -20,10 +20,10 @@ end
 Node() = Node(nothing, nothing, -1, -1e10, nothing)
 
 
-maxiter = 200000
+maxiter = 1000
 tol = 1e-6
 mingap = 1e-3
-time_lapse = 43200 # 4 hours
+time_lapse = 14400 # 4 hours
 
 
 # function to print the node in a neat form
@@ -144,6 +144,9 @@ function branch_bound(X, k)
         if iter == 1
             node_centers, node_UB = ub_functions.getUpperBound(X, k, nothing, nothing, tol)
             # insert OBBT function here to tightening the range of each variable
+            lwr = OBBT_min(X, k, node_UB, nothing, nothing, true, 2)
+            upr = OBBT_max(X, k, node_UB, nothing, nothing, true, 2)
+            node = Node(lower_data, upper_data, node.level, node.LB, node.groups);
         else
             node_centers, node_UB = ub_functions.getUpperBound(X, k, node.lower, node.upper, tol)
         end    
