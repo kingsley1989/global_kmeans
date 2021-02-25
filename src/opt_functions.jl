@@ -163,6 +163,7 @@ function linear_OPT(X, k, lower=nothing, upper=nothing, mute=false, nlines = 3)
         center = zeros(d,k) 
         LB = Inf
         println("No feasible solution found. This node is fathomed.")
+    end
     return centers, LB, m
 end
 
