@@ -124,7 +124,7 @@ function OBBT_max(X, k, UB, lower=nothing, upper=nothing, mute=false, nlines = 1
 
             @objective(m, Max, centers[dim, clst]);
             optimize!(m);
-            println(result_count(m))
+            # println(result_count(m))
             if result_count(m) >= 1
                 upr_center[dim, clst] = getobjectivevalue(m)
             else    

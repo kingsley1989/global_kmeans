@@ -156,15 +156,28 @@ function linear_OPT(X, k, lower=nothing, upper=nothing, mute=false, nlines = 3)
 
     @objective(m, Min, sum(costs[j] for j in 1:n));
     optimize!(m);
-    centers = value.(centers)
-    LB = getobjectivevalue(m)
+    if result_count(m) >= 1
+        centers = value.(centers)
+        LB = getobjectivevalue(m)
+    else # in bb process, there may be infeasible in some node, and thus no LB and center exist.
+        center = zeros(d,k) 
+        LB = Inf
+        println("No feasible solution found. This node is fathomed.")
     return centers, LB, m
 end
 
 function global_OPT_linear(X, k, lower=nothing, upper=nothing, mute=false, nlines = 3)
-    centers, ~, m = linear_OPT(X, k, lower, upper, mute, nlines)
-    gap = relative_gap(m) # get the relative gap for cplex solver
-    objv, assign = obj_assign(centers, X) # here the objv should be a lower bound of CPLEX
+    centers, LB, m = linear_OPT(X, k, lower, upper, mute, nlines)
+    if LB != Inf # only have result when solution exists
+        gap = relative_gap(m) # get the relative gap for cplex solver
+        objv, assign = obj_assign(centers, X) # here the objv should be a lower bound of CPLEX
+    else # no solution, printout error message
+        println("No solution for global optimization of linearized relaxation.")
+        center = Inf
+        objv = Inf
+        assign = Inf
+        gap = Inf
+    end
     return centers, objv, assign, gap
 end
 
