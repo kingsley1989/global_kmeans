@@ -114,7 +114,7 @@ function global_OPT_base(X, k, lower=nothing, upper=nothing, mute=false)
 end
 
 # nlines represents 2*nlines lines added as the outer approximation for the problem
-function linear_OPT(X, k, lower=nothing, upper=nothing, mute=false, nlines = 3)
+function linear_OPT(X, k, lower=nothing, upper=nothing, mute=false, nlines = 3, time = 900)
     d, n = size(X)
     lower, upper = init_bound(X, d, k, lower, upper)
 
@@ -133,7 +133,7 @@ function linear_OPT(X, k, lower=nothing, upper=nothing, mute=false, nlines = 3)
     if mute
         set_optimizer_attribute(m, "CPX_PARAM_SCRIND", 0)
     end
-    set_optimizer_attribute(m, "CPX_PARAM_TILIM", time_lapse) # maximum runtime limit is 4 hours
+    set_optimizer_attribute(m, "CPX_PARAM_TILIM", time) # maximum runtime limit is 4 hours
     @variable(m, lower[t,i] <= centers[t in 1:d, i in 1:k] <= upper[t,i], start=rand());
     @constraint(m, [j in 1:k-1], centers[1,j]<= centers[1,j+1])
 
@@ -171,7 +171,7 @@ function linear_OPT(X, k, lower=nothing, upper=nothing, mute=false, nlines = 3)
 end
 
 function global_OPT_linear(X, k, lower=nothing, upper=nothing, mute=false, nlines = 3)
-    centers, LB, m = linear_OPT(X, k, lower, upper, mute, nlines)
+    centers, LB, m = linear_OPT(X, k, lower, upper, mute, nlines, 43200)
     if LB != Inf # only have result when solution exists
         gap = relative_gap(m) # get the relative gap for cplex solver
         objv, assign = obj_assign(centers, X) # here the objv should be a lower bound of CPLEX
