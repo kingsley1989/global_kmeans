@@ -146,7 +146,7 @@ function branch_bound(X, k)
             # insert OBBT function here to tightening the range of each variable
             lwr = OBBT_min(X, k, node_UB, nothing, nothing, true, 2)
             upr = OBBT_max(X, k, node_UB, nothing, nothing, true, 2)
-            node = Node(lower_data, upper_data, node.level, node.LB, node.groups);
+            node = Node(lwr, upr, node.level, node.LB, node.groups);
         else
             node_centers, node_UB = ub_functions.getUpperBound(X, k, node.lower, node.upper, tol)
         end    
