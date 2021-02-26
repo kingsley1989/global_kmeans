@@ -20,7 +20,7 @@ end
 Node() = Node(nothing, nothing, -1, -1e10, nothing)
 
 
-maxiter = 1000
+maxiter = 50000
 tol = 1e-6
 mingap = 1e-3
 time_lapse = 14400 # 4 hours
@@ -166,9 +166,9 @@ function branch_bound(X, k)
         # println("LB:  ", LB)
         
         # The node may has lb value smaller than the global lb, it is not good but is possible if we have the subgroupping
-        # node_LB = lb_functions.getLowerBound_Test(X, k, centers, node.lower, node.upper) # getLowerBound_clust
+        node_LB = lb_functions.getLowerBound_Test(X, k, centers, node.lower, node.upper) # getLowerBound_clust
         # node_LB = lb_functions.getLowerBound_analytic(X, k, node.lower, node.upper) # getLowerBound with closed-form expression
-        node_LB = lb_functions.getLowerBound_linear(X, k, node.lower, node.upper, 5) # getLowerBound with linearized constraints 
+        # node_LB = lb_functions.getLowerBound_linear(X, k, node.lower, node.upper, 5) # getLowerBound with linearized constraints 
         #if node_LB<LB # this if statement just put all nodes have the lb greater than their parent node
         #    node_LB = LB
         #end 
