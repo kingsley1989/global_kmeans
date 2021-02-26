@@ -138,7 +138,8 @@ function linear_OPT(X, k, lower=nothing, upper=nothing, mute=false, nlines = 3)
     @constraint(m, [j in 1:k-1], centers[1,j]<= centers[1,j+1])
 
     @variable(m, 0<=dmat[i in 1:k, j in 1:n]<=dmat_max[i,j], start=rand());
-    @variable(m, lower[t,i]^2 <= w[t in 1:d, i in 1:k] <= upper[t,i]^2) # add the horizontal line of the lower bottom line bound 
+    #@variable(m, lower[t,i]^2 <= w[t in 1:d, i in 1:k] <= upper[t,i]^2) # add the horizontal line of the lower bottom line bound 
+    @variable(m, 0 <= w[t in 1:d, i in 1:k]) # add the horizontal line of the lower bottom line bound 
     @constraint(m, [i in 1:k, j in 1:n], dmat[i,j] >= sum((X[t,j]^2 - 2*X[t,j]*centers[t,i] + w[t,i]) for t in 1:d ));
     itval = (upper-lower)./2/nlines # total 2*nlines, separate the range into 2*nlines sections
     for line in 0:(nlines-1)
@@ -147,6 +148,8 @@ function linear_OPT(X, k, lower=nothing, upper=nothing, mute=false, nlines = 3)
         @constraint(m, [t in 1:d, i in 1:k], 2*lwr[t,i]*centers[t,i]-lwr[t,i]^2 <= w[t,i])
         @constraint(m, [t in 1:d, i in 1:k], 2*upr[t,i]*centers[t,i]-upr[t,i]^2 <= w[t,i])
     end
+    # add constraint for upper bound of w, may not necessary
+    # @constraint(m, [t in 1:d, i in 1:k], w[t,i] <= (upper[t,i]+lower[t,i])*centers[t,i]-upper[t,i]*lower[t,i])
 
     @variable(m, lambda[1:k, 1:n], Bin)
     @constraint(m, [j in 1:n], sum(lambda[i,j] for i in 1:k) == 1);
