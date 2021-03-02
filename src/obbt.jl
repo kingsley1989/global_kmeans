@@ -9,7 +9,7 @@ using opt_functions
 
 export OBBT_min, OBBT_max
 
-time_lapse = 600 # 10 mins
+time_lapse = 180 # 10 mins
 
 # nlines represents 2*nlines lines added as the outer approximation for the problem
 function OBBT_min(X, k, UB, lower=nothing, upper=nothing, mute=false, nlines = 1)

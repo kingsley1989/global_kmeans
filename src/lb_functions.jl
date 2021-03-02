@@ -85,7 +85,7 @@ end
 
 ############## Lower bound calculation with linearized constraints ##############
 function getLowerBound_linear(X, k, lower=nothing, upper=nothing, nlines = 3)
-    centers, LB, ~ = linear_OPT(X, k, lower, upper, true, nlines, 3600)
+    centers, LB, ~ = linear_OPT(X, k, lower, upper, true, nlines, 900)
     return LB
 end
 

@@ -166,8 +166,8 @@ function branch_bound(X, k)
         # println("LB:  ", LB)
         
         # The node may has lb value smaller than the global lb, it is not good but is possible if we have the subgroupping
-        node_LB = lb_functions.getLowerBound_Test(X, k, centers, node.lower, node.upper) # getLowerBound_clust
-        # node_LB = lb_functions.getLowerBound_analytic(X, k, node.lower, node.upper) # getLowerBound with closed-form expression
+        # node_LB = lb_functions.getLowerBound_Test(X, k, centers, node.lower, node.upper) # getLowerBound_clust
+        node_LB = lb_functions.getLowerBound_analytic(X, k, node.lower, node.upper) # getLowerBound with closed-form expression
         # node_LB = lb_functions.getLowerBound_linear(X, k, node.lower, node.upper, 5) # getLowerBound with linearized constraints 
         #if node_LB<LB # this if statement just put all nodes have the lb greater than their parent node
         #    node_LB = LB
@@ -281,6 +281,10 @@ function branch_bound_LD(X, k)
 
         if iter == 1
             node_centers, node_UB = ub_functions.getUpperBound(X, k, nothing, nothing, tol)
+            # insert OBBT function here to tightening the range of each variable
+            lwr = OBBT_min(X, k, node_UB, nothing, nothing, true, 4)
+            upr = OBBT_max(X, k, node_UB, nothing, nothing, true, 4)
+            node = Node(lwr, upr, node.level, node.LB, node.groups);
         else
             node_centers, node_UB = ub_functions.getUpperBound(X, k, node.lower, node.upper, tol)
         end    
@@ -414,6 +418,10 @@ function branch_bound_adptGp(X, k)
 
         if iter == 1
             node_centers, node_UB = ub_functions.getUpperBound(X, k, nothing, nothing, tol)
+            # insert OBBT function here to tightening the range of each variable
+            lwr = OBBT_min(X, k, node_UB, nothing, nothing, true, 2)
+            upr = OBBT_max(X, k, node_UB, nothing, nothing, true, 2)
+            node = Node(lwr, upr, node.level, node.LB, node.groups);
         else
             node_centers, node_UB = ub_functions.getUpperBound(X, k, node.lower, node.upper, tol)
         end    
@@ -555,6 +563,10 @@ function branch_bound_adptGp_LD(X, k)
 
         if iter == 1
             node_centers, node_UB = ub_functions.getUpperBound(X, k, nothing, nothing, tol)
+            # insert OBBT function here to tightening the range of each variable
+            lwr = OBBT_min(X, k, node_UB, nothing, nothing, true, 2)
+            upr = OBBT_max(X, k, node_UB, nothing, nothing, true, 2)
+            node = Node(lwr, upr, node.level, node.LB, node.groups);
         else
             node_centers, node_UB = ub_functions.getUpperBound(X, k, node.lower, node.upper, tol)
         end    
