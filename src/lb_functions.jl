@@ -49,21 +49,8 @@ end
 ############## Lower bound calculation with closed-form ##############
 function getLowerBound_analytic(X, k, lower=nothing, upper=nothing)
     d, n = size(X)
-    lower_data = Vector{Float64}(undef, d)
-    upper_data = Vector{Float64}(undef, d)
-    for i = 1:d
-        lower_data[i] = minimum(X[i,:])
-        upper_data[i] = maximum(X[i,:])
-    end
-    lower_data = repeat(lower_data, 1, k)
-    upper_data = repeat(upper_data, 1, k)
-    if lower === nothing
-        lower = lower_data
-        upper = upper_data
-    else
-        lower = min.(upper.-1e-4, max.(lower, lower_data))
-        upper = max.(lower.+1e-4, min.(upper, upper_data))
-    end
+    lower, upper = opt_functions.init_bound(X, d, k, lower, upper)
+
     # get the mid value of each mu for each cluster
     # start calculating the lower bound (distance of x_s to its closest mu)
     LB = 0
@@ -85,7 +72,13 @@ end
 
 ############## Lower bound calculation with linearized constraints ##############
 function getLowerBound_linear(X, k, lower=nothing, upper=nothing, nlines = 3)
-    centers, LB, ~ = linear_OPT(X, k, lower, upper, true, nlines, 900)
+    centers, LB, ~ = opt_functions.linear_OPT(X, k, lower, upper, true, nlines, 900)
+    return LB
+end
+
+############## Lower bound calculation with outer approximation ##############
+function getLowerBound_oa(X, k, UB, lower=nothing, upper=nothing, max_iter = 5)
+    centers, LB, ~ = global_OPT_oa(X, k, UB, lower, upper, true, max_iter)
     return LB
 end
 

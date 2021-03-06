@@ -35,7 +35,9 @@ t_adp_LD = @elapsed centers_adp_LD, objv_adp_LD, calcInfo_adp_LD = bb_functions.
 
 # global optimization using CPLEX directly objv_lg is the lower bound of current solution
 t_g = @elapsed centers_g, objv_g, assign_g, gap_g = global_OPT_base(data, k)
-t_ln = @elapsed centers_ln, objv_ln, assign_ln, gap_ln = global_OPT_linear(data, k, nothing, nothing, false, 50)
+t_ln = @elapsed centers_ln, objv_ln, assign_ln, gap_ln = global_OPT_linear(data, k, nothing, nothing, false, 4)
+t_oa = @elapsed centers_oa, objv_oa, assign_oa, gap_oa = global_OPT_oa_base(data, k, objv_l, nothing, nothing, true, 5)
+
 
 # kmeans results for comparison
 Random.seed!(0)

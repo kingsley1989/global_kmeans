@@ -15,18 +15,8 @@ time_lapse = 180 # 10 mins
 function OBBT_min(X, k, UB, lower=nothing, upper=nothing, mute=false, nlines = 1)
     d, n = size(X)
     lower, upper = opt_functions.init_bound(X, d, k, lower, upper)
-
-    dmat_max = zeros(k,n)
-    for j = 1:n
-    	for i = 1:k
-            max_distance = 0
-            for t = 1:d
-                max_distance += max((X[t,j]-lower[t,i])^2, (X[t,j]-upper[t,i])^2)
-            end	
-            dmat_max[i,j] = max_distance
-	    end
-    end    
-
+    dmat_max = opt_functions.max_dist(X, d, k, n, lower, upper)  
+    
     lwr_center = zeros(d,k) # initialize the lower bound of center
     println("Start OBBT(minimum) process:")
     # for each dimension and cluster, we have a variable to solve
@@ -43,7 +33,7 @@ function OBBT_min(X, k, UB, lower=nothing, upper=nothing, mute=false, nlines = 1
 
             @variable(m, 0<=dmat[i in 1:k, j in 1:n]<=dmat_max[i,j], start=rand());
             #@variable(m, lower[t,i]^2 <= w[t in 1:d, i in 1:k] <= upper[t,i]^2) # add the horizontal line of the lower bottom line bound 
-            @variable(m, 0 <= w[t in 1:d, i in 1:k]) # add the horizontal line of the lower bottom line bound 
+            @variable(m, 0 <= w[t in 1:d, i in 1:k], start=rand()) # add the horizontal line of the lower bottom line bound 
             @constraint(m, [i in 1:k, j in 1:n], dmat[i,j] >= sum((X[t,j]^2 - 2*X[t,j]*centers[t,i] + w[t,i]) for t in 1:d ));
             itval = (upper-lower)./2/nlines # total 2*nlines, separate the range into 2*nlines sections
             for line in 0:(nlines-1)
@@ -81,17 +71,7 @@ end
 function OBBT_max(X, k, UB, lower=nothing, upper=nothing, mute=false, nlines = 1)
     d, n = size(X)
     lower, upper = opt_functions.init_bound(X, d, k, lower, upper)
-    
-    dmat_max = zeros(k,n)
-    for j = 1:n
-    	for i = 1:k
-            max_distance = 0
-            for t = 1:d
-                max_distance += max((X[t,j]-lower[t,i])^2, (X[t,j]-upper[t,i])^2)
-            end	
-            dmat_max[i,j] = max_distance
-	    end
-    end    
+    dmat_max = opt_functions.max_dist(X, d, k, n, lower, upper)
 
     upr_center = zeros(d,k) # initialize the lower bound of center
     println("Start OBBT(maximum) process:")
@@ -109,7 +89,7 @@ function OBBT_max(X, k, UB, lower=nothing, upper=nothing, mute=false, nlines = 1
 
             @variable(m, 0<=dmat[i in 1:k, j in 1:n]<=dmat_max[i,j], start=rand());
             #@variable(m, lower[t,i]^2 <= w[t in 1:d, i in 1:k] <= upper[t,i]^2) # add the horizontal line of the lower bottom line bound 
-            @variable(m, 0 <= w[t in 1:d, i in 1:k]) # add the horizontal line of the lower bottom line bound
+            @variable(m, 0 <= w[t in 1:d, i in 1:k], start=rand()) # add the horizontal line of the lower bottom line bound
             @constraint(m, [i in 1:k, j in 1:n], dmat[i,j] >= sum((X[t,j]^2 - 2*X[t,j]*centers[t,i] + w[t,i]) for t in 1:d ));
             itval = (upper-lower)./2/nlines # total 2*nlines, separate the range into 2*nlines sections
             for line in 0:(nlines-1)
