@@ -28,7 +28,7 @@ Random.seed!(123)
 centers_l, assign_l, objv_l = local_OPT(data, k)
 
 # branch&bound global optimization for kmeans clustering
-t = @elapsed centers, objv, calcInfo = branch_bound(data, k)
+t = @elapsed centers, objv, calcInfo = branch_bound(data, k, "adaGp")
 t_LD = @elapsed centers_LD, objv_LD, calcInfo_LD = bb_functions.branch_bound_LD(data, k)
 t_adp = @elapsed centers_adp, objv_adp, calcInfo_adp = bb_functions.branch_bound_adptGp(data, k) # 237s 11 iterations
 t_adp_LD = @elapsed centers_adp_LD, objv_adp_LD, calcInfo_adp_LD = bb_functions.branch_bound_adptGp_LD(data, k) #
