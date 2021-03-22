@@ -319,6 +319,7 @@ function global_OPT3_LD(X, k, lambda, lower=nothing, upper=nothing, mute=false)
         set_optimizer_attribute(m, "CPX_PARAM_SCRIND", 0)
     end
     set_optimizer_attribute(m, "CPX_PARAM_TILIM", time_lapse) # maximum runtime limit is 1 hours
+    set_optimizer_attribute(m, "CPXPARAM_Threads", 1) # set maximum thread to 1, let the cplex to run in sequential
     # here the gap should always < mingap of BB, e.g. if mingap = 0.1%, then gap here should be < 0.1%, the default is 0.01%
     # set_optimizer_attribute(m, "CPX_PARAM_EPGAP", 0.1) 
     @variable(m, lower[t,i] <= centers[t in 1:d, i in 1:k] <= upper[t,i], start=rand());

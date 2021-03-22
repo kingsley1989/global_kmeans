@@ -46,6 +46,19 @@ end
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
 # first original function for calcualting lower bound
 function getLowerBound_Test_par2(X, k, centers, lower=nothing, upper=nothing)
     
