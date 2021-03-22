@@ -12,10 +12,13 @@ println("Running ",nprocs()," processes")
 @everywhere if !("src/" in LOAD_PATH)
     push!(LOAD_PATH, "src/")
 end
+@everywhere if !("src_par/" in LOAD_PATH)
+    push!(LOAD_PATH, "src_par/")
+end
 #@everywhere using opt_functions
 
 using data_process
-using lb_pfunctions, lb_functions
+using lb_par, lb_functions, bb_par, opt_functions
 
 
 
@@ -49,10 +52,17 @@ scatter(data[1,:], data[2,:], markercolor=label, legend = false, title = "My Sca
 
 
 result = kmeans(data, k)
-@time test_ctrl = lb_functions.getLowerBound_Test(data, k, result.centers)
-@time test_ctrl_pl = lb_pfunctions.getLowerBound_Test_parallel(data, k, result.centers)
-@time test_ctrl_pl2 = lb_pfunctions.getLowerBound_Test_parallel2(data, k, result.centers)
-@time test_ctrl_pl3 = lb_pfunctions.getLowerBound_Test_parallel3(data, k, result.centers)
+
+# local optimization for kmeans clustering
+centers_l, assign_l, objv_l = local_OPT(data, k)
+
+# branch&bound global optimization for kmeans clustering
+t = @elapsed centers, objv, calcInfo = bb_par.branch_bound_par(data, k)
+
+@time test_ctrl = lb_functions.getLowerBound_Test(data, k, result.centers) # 129s
+@time test_ctrl_pl = lb_par.getLowerBound_Test_par(data, k, result.centers) # 30.85s
+@time test_ctrl_pl2 = lb_par.getLowerBound_Test_par2(data, k, result.centers) # 31.94s
+@time test_ctrl_pl3 = lb_par.getLowerBound_Test_par3(data, k, result.centers) # 30.71s
 # ~, assign = obj_assign(result.centers, data);
 # d, n = size(data);
 # ngroups = round(Int, n/k/10); # determine the number of groups, 10*k points in each group

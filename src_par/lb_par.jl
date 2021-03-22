@@ -1,4 +1,4 @@
-module lb_pfunctions
+module lb_par
 
 using Random, Distributions
 using LinearAlgebra
@@ -15,14 +15,14 @@ using Distributed, SharedArrays
 ############## Original lower bound calculation ##############
 function LB_calc(X, k, groups, ngroups, lower, upper)
     @distributed (+) for i = 1:ngroups
-    	global_OPT3(X[:,groups[i]], k, lower, upper, true)[3]
+    	global_OPT3(X[:,groups[i]], k, lower, upper, true)[2]
     end
 end
 
 # first original function for calcualting lower bound
-function getLowerBound_Test_parallel(X, k, centers, lower=nothing, upper=nothing)
+function getLowerBound_Test_par(X, k, centers, lower=nothing, upper=nothing)
     
-    ~, assign = obj_assign(centers, X); # objv as a qUB
+    ~, assign = opt_functions.obj_assign(centers, X); # objv as a qUB
     d, n = size(X);
     ngroups = round(Int, n/k/10); # determine the number of groups, 10*k points in each group
     
@@ -47,7 +47,7 @@ end
 
 
 # first original function for calcualting lower bound
-function getLowerBound_Test_parallel2(X, k, centers, lower=nothing, upper=nothing)
+function getLowerBound_Test_par2(X, k, centers, lower=nothing, upper=nothing)
     
     ~, assign = obj_assign(centers, X); # objv as a qUB
     d, n = size(X);
@@ -68,7 +68,7 @@ function getLowerBound_Test_parallel2(X, k, centers, lower=nothing, upper=nothin
 
     X_gp = pmap(i -> X[:, groups[i]], 1:ngroups)
     LB = @distributed (+) for i = 1:ngroups
-    	global_OPT3(X_gp[i], k, lower, upper, true)[3]
+    	global_OPT3(X_gp[i], k, lower, upper, true)[2]
     end
 
     return LB
@@ -77,7 +77,7 @@ end
 
 
 # first original function for calcualting lower bound
-function getLowerBound_Test_parallel3(X, k, centers, lower=nothing, upper=nothing)
+function getLowerBound_Test_par3(X, k, centers, lower=nothing, upper=nothing)
     
     ~, assign = obj_assign(centers, X); # objv as a qUB
     d, n = size(X);
@@ -96,7 +96,7 @@ function getLowerBound_Test_parallel3(X, k, centers, lower=nothing, upper=nothin
         end
     end
 
-    objv_gp = pmap(i -> global_OPT3(X[:, groups[i]], k, lower, upper, true)[3], 1:ngroups)
+    objv_gp = pmap(i -> global_OPT3(X[:, groups[i]], k, lower, upper, true)[2], 1:ngroups)
     LB = @distributed (+) for i = 1:ngroups
     	objv_gp[i]
     end

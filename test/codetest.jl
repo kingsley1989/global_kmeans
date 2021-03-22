@@ -41,16 +41,26 @@ label = convertlabel(1:k, vec(label))
 pyplot()
 scatter(data[1,:], data[2,:], markercolor=label, legend = false, title = "My Scatter Plot")
 
-
+n_trial = 5
+tol = 1e-6
 result = kmeans(data, k)
+UB = result.totalcost
+centers = result.centers
+for i = 2:n_trial
+    result = kmeans(data, k)
+    if result.totalcost <= UB - tol # tol is the tolerance
+            UB = result.totalcost
+        centers = result.centers
+    end
+end
 
 ~, assign = obj_assign(result.centers, data);
 d, n = size(data);
 ngroups = round(Int, n/k/10); # determine the number of groups, 10*k points in each group
 groups = lb_functions.kmeans_group(data, assign, ngroups)
 
-lower = obbt.OBBT_min(data, k, result.totalcost, nothing, nothing, true, 2)
-upper = obbt.OBBT_max(data, k, result.totalcost, nothing, nothing, true, 2)
+lower = obbt.OBBT_min(data, k, UB, nothing, nothing, true, 2)
+upper = obbt.OBBT_max(data, k, UB, nothing, nothing, true, 2)
 
 @time test_anly = lb_functions.getLowerBound_analytic(data, k) # closed-form lower bound calcualting
 @time test_ctrl = lb_functions.getLowerBound_Test(data, k, result.centers) # basic lower bound calculating

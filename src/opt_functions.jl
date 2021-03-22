@@ -101,6 +101,7 @@ function global_OPT_base(X, k, lower=nothing, upper=nothing, mute=false)
         set_optimizer_attribute(m, "CPX_PARAM_SCRIND", 0)
     end
     set_optimizer_attribute(m, "CPX_PARAM_TILIM", time_lapse*16) # maximum runtime limit is time_lapse*16 or set to 4/12 hours
+    set_optimizer_attribute(m, "CPX_PARAM_MIQCPSTRAT", 1) # 0 for qcp relax and 1 for lp oa relax.
     @variable(m, lower[t,i] <= centers[t in 1:d, i in 1:k] <= upper[t,i], start=rand());
     @constraint(m, [j in 1:k-1], centers[1,j]<= centers[1,j+1])
     @variable(m, 0<=dmat[i in 1:k, j in 1:n]<=dmat_max[i,j], start=rand());
@@ -158,7 +159,7 @@ function linear_OPT(X, k, lower=nothing, upper=nothing, mute=false, nlines = 3, 
     optimize!(m);
     if result_count(m) >= 1
         centers = value.(centers)
-        LB = getobjectivevalue(m)
+        LB = objective_bound(m) #getobjectivevalue(m)
     else # in bb process, there may be infeasible in some node, and thus no LB and center exist.
         center = zeros(d,k) 
         LB = Inf
@@ -194,7 +195,7 @@ function oa_init_OPT(X, d, k, n, lower=nothing, upper=nothing, mute=false)
     if mute
         set_optimizer_attribute(m, "CPX_PARAM_SCRIND", 0)
     end
-    set_optimizer_attribute(m, "CPX_PARAM_TILIM", 180) # maximum runtime limit is 4 hours
+    set_optimizer_attribute(m, "CPX_PARAM_TILIM", 150) # maximum runtime limit is 4 hours
     @variable(m, lower[t,i] <= centers[t in 1:d, i in 1:k] <= upper[t,i], start=rand());
     @constraint(m, [j in 1:k-1], centers[1,j]<= centers[1,j+1])
     @variable(m, 0<=dmat[i in 1:k, j in 1:n]<=dmat_max[i,j], start=rand());
@@ -283,6 +284,7 @@ function global_OPT3(X, k, lower=nothing, upper=nothing, mute=false)
         set_optimizer_attribute(m, "CPX_PARAM_SCRIND", 0) # this varible control the print of CPLEX solving process
     end
     set_optimizer_attribute(m, "CPX_PARAM_TILIM", time_lapse) # maximum runtime limit is 1 hours
+    set_optimizer_attribute(m, "CPXPARAM_Threads", 1) # set maximum thread to 1, let the cplex to run in sequential
     # here the gap should always < mingap of BB, e.g. if mingap = 0.1%, then gap here should be < 0.1%, the default is 0.01%
     # set_optimizer_attribute(m, "CPX_PARAM_EPGAP", 0.1) 
     @variable(m, lower[t,i] <= centers[t in 1:d, i in 1:k] <= upper[t,i], start=rand());

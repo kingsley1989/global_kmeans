@@ -169,7 +169,7 @@ function branch_bound(X, k)
         # node_LB = lb_functions.getLowerBound_Test(X, k, centers, node.lower, node.upper) # getLowerBound_clust
         # node_LB = lb_functions.getLowerBound_analytic(X, k, node.lower, node.upper) # getLowerBound with closed-form expression
         # node_LB = lb_functions.getLowerBound_linear(X, k, node.lower, node.upper, 5) # getLowerBound with linearized constraints 
-        node_LB = lb_functions.getLowerBound_oa(X, k, UB, node.lower, node.upper, 4) # getLowerBound with outer approximation 
+        node_LB = lb_functions.getLowerBound_oa(X, k, UB, node.lower, node.upper, 2) # getLowerBound with outer approximation 
         #if node_LB<LB # this if statement just put all nodes have the lb greater than their parent node
         #    node_LB = LB
         #end 
@@ -222,6 +222,8 @@ function branch_bound(X, k)
     @printf "%-52d  %-14.4e %-14.4e %-7.4f %s \n" iter  max_LB UB (UB-max_LB)/min(abs(max_LB),abs(UB))*100 "%"
     println("centers   ",centers)
     
+    #println("obbt lower: ", lwr)
+    #println("obbt upper: ", upr)
     return centers, UB, calcInfo
 end
 
