@@ -141,8 +141,8 @@ function getLowerBound_adptGp_LD_par(X, k, centers, parent_groups=nothing, lower
     obj_ub, assign = obj_assign(centers, X);
     d, n = size(X);
     ngroups = round(Int, n/k/10); # determine the number of groups, 10*k points in each group, 5*k for large problems (d*k>10 or n>1500)
-    groups = kmeans_group(X, assign, ngroups)
-    println(length.(groups))
+    groups = lb_functions.kmeans_group(X, assign, ngroups)
+    #println(length.(groups))
     # calculate the lower bound with largrangean decomposition
     LB = LD_2_par(X, d, k, ngroups, groups, obj_ub, lower, upper)
 

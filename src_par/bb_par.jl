@@ -173,10 +173,10 @@ function branch_bound_par(X, k, method = "Test")
         elseif (method == "LD")
             node_LB = lb_par.getLowerBound_LD_par(X, k, centers, node.lower, node.upper) # getLowerBound_clust
         elseif (method == "adaGp")
-            node_LB, groups = lb_functions.getLowerBound_adptGp_par(X, k, centers, groups, node.lower, node.upper, LB)
+            node_LB, groups = lb_par.getLowerBound_adptGp_par(X, k, centers, groups, node.lower, node.upper, LB)
             node = Node(node.lower, node.upper, node.level, node.LB, groups)
         elseif (method == "LD+adaGp")
-            node_LB, groups = lb_functions.getLowerBound_adptGp_LD_par(X, k, centers, groups, node.lower, node.upper, LB)
+            node_LB, groups = lb_par.getLowerBound_adptGp_LD_par(X, k, centers, groups, node.lower, node.upper, LB)
             node = Node(node.lower, node.upper, node.level, node.LB, groups)
         else
             # node_LB = lb_functions.getLowerBound_analytic(X, k, node.lower, node.upper) # getLowerBound with closed-form expression
