@@ -89,7 +89,7 @@ function branch!(X, nodeList, bVarIdx, bVarIdy, bValue, node, node_LB, k)
 end
 
 
-function branch_bound_par(X, k)
+function branch_bound_par(X, k, method = "Test")
     d, n = size(X);	 
     lower_data = Vector{Float64}(undef, d)
     upper_data = Vector{Float64}(undef, d)  
@@ -168,14 +168,22 @@ function branch_bound_par(X, k)
         # println("LB:  ", LB)
         
         # The node may has lb value smaller than the global lb, it is not good but is possible if we have the subgroupping
-        node_LB = lb_par.getLowerBound_Test_par(X, k, centers, node.lower, node.upper) # getLowerBound_clust
-        #if node_LB<LB # this if statement just put all nodes have the lb greater than their parent node
-        #    node_LB = LB
-        #end 
-        # println("nodeLB nodeUB   ",node_LB, "     ", node_UB) 
-        # println("centers  ", centers)
-        # here this condition include the condition UB < node_LB and the condition that current node's LB is close to UB within the mingap
-        # Such node no need to branch
+        if (method == "Test")
+            node_LB == lb_par.getLowerBound_Test_par(X, k, centers, node.lower, node.upper) # getLowerBound_clust
+        elseif (method == "LD")
+            node_LB = lb_par.getLowerBound_LD_par(X, k, centers, node.lower, node.upper) # getLowerBound_clust
+        elseif (method == "adaGp")
+            node_LB, groups = lb_functions.getLowerBound_adptGp_par(X, k, centers, groups, node.lower, node.upper, LB)
+            node = Node(node.lower, node.upper, node.level, node.LB, groups)
+        elseif (method == "LD+adaGp")
+            node_LB, groups = lb_functions.getLowerBound_adptGp_LD_par(X, k, centers, groups, node.lower, node.upper, LB)
+            node = Node(node.lower, node.upper, node.level, node.LB, groups)
+        else
+            # node_LB = lb_functions.getLowerBound_analytic(X, k, node.lower, node.upper) # getLowerBound with closed-form expression
+            # node_LB = lb_functions.getLowerBound_linear(X, k, node.lower, node.upper, 5) # getLowerBound with linearized constraints 
+            node_LB = lb_functions.getLowerBound_oa(X, k, UB, node.lower, node.upper, 2) # getLowerBound with outer approximation 
+        end
+
         if (UB-node_LB)<= mingap || (UB-node_LB) <= mingap*min(abs(node_LB), abs(UB))
             # save the best LB if it close to UB enough (within the mingap)
             if node_LB < max_LB

@@ -56,13 +56,17 @@ result = kmeans(data, k)
 # local optimization for kmeans clustering
 centers_l, assign_l, objv_l = local_OPT(data, k)
 
+lb = lb_par.LD_2_par_test(data, k, result.centers)
+@time test_ld_pl = lb_par.getLowerBound_LD_par(data, k, result.centers)
+
 # branch&bound global optimization for kmeans clustering
-t = @elapsed centers, objv, calcInfo = bb_par.branch_bound_par(data, k)
+t = @elapsed centers, objv, calcInfo = bb_par.branch_bound_par(data, k, "LD")
 
 @time test_ctrl = lb_functions.getLowerBound_Test(data, k, result.centers) # 129s
 @time test_ctrl_pl = lb_par.getLowerBound_Test_par(data, k, result.centers) # 30.85s
 @time test_ctrl_pl2 = lb_par.getLowerBound_Test_par2(data, k, result.centers) # 31.94s
 @time test_ctrl_pl3 = lb_par.getLowerBound_Test_par3(data, k, result.centers) # 30.71s
+@time test_ctrl_pl3 = lb_par.getLowerBound_LD_par(data, k, result.centers) # 30.71s
 # ~, assign = obj_assign(result.centers, data);
 # d, n = size(data);
 # ngroups = round(Int, n/k/10); # determine the number of groups, 10*k points in each group

@@ -319,7 +319,7 @@ function global_OPT3_LD(X, k, lambda, lower=nothing, upper=nothing, mute=false)
         set_optimizer_attribute(m, "CPX_PARAM_SCRIND", 0)
     end
     set_optimizer_attribute(m, "CPX_PARAM_TILIM", time_lapse) # maximum runtime limit is 1 hours
-    set_optimizer_attribute(m, "CPXPARAM_Threads", 1) # set maximum thread to 1, let the cplex to run in sequential
+    set_optimizer_attribute(m, "CPX_PARAM_THREADS", 1) # set maximum thread to 1, let the cplex to run in sequential
     # here the gap should always < mingap of BB, e.g. if mingap = 0.1%, then gap here should be < 0.1%, the default is 0.01%
     # set_optimizer_attribute(m, "CPX_PARAM_EPGAP", 0.1) 
     @variable(m, lower[t,i] <= centers[t in 1:d, i in 1:k] <= upper[t,i], start=rand());
@@ -332,8 +332,7 @@ function global_OPT3_LD(X, k, lambda, lower=nothing, upper=nothing, mute=false)
     @constraint(m, [i in 1:k, j in 1:n], costs[j] - dmat[i,j] >= -dmat_max[i,j]*(1-b[i,j]))
     @constraint(m, [i in 1:k, j in 1:n], costs[j] - dmat[i,j] <= dmat_max[i,j]*(1-b[i,j]))
 
-    @objective(m, Min, sum(costs[j] for j in 1:n)+
-                sum((lambda[:,i,2]-lambda[:,i,1])'*centers[:,i] for i in 1:k));
+    @objective(m, Min, sum(costs[j] for j in 1:n)+sum((lambda[:,i,2]-lambda[:,i,1])'*centers[:,i] for i in 1:k));
     optimize!(m);
     centers = value.(centers)
     #objv, assign = obj_assign(centers, X) # here the objv should be a lower bound of CPLEX
