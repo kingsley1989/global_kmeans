@@ -136,7 +136,7 @@ end
 
 
 
-function getLowerBound_adptGp_LD(X, k, centers, parent_groups=nothing, lower=nothing, upper=nothing,  glbLB=-Inf)
+function getLowerBound_adptGp_LD_par(X, k, centers, parent_groups=nothing, lower=nothing, upper=nothing,  glbLB=-Inf)
     # first generate new grouping based the assignment of current centers
     obj_ub, assign = obj_assign(centers, X);
     d, n = size(X);

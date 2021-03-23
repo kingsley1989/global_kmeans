@@ -60,7 +60,7 @@ lb = lb_par.LD_2_par_test(data, k, result.centers)
 @time test_ld_pl = lb_par.getLowerBound_LD_par(data, k, result.centers)
 
 # branch&bound global optimization for kmeans clustering
-t = @elapsed centers, objv, calcInfo = bb_par.branch_bound_par(data, k, "LD")
+t = @elapsed centers, objv, calcInfo = bb_par.branch_bound_par(data, k, "LD+adaGp")
 
 @time test_ctrl = lb_functions.getLowerBound_Test(data, k, result.centers) # 129s
 @time test_ctrl_pl = lb_par.getLowerBound_Test_par(data, k, result.centers) # 30.85s
