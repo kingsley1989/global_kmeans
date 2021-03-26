@@ -302,7 +302,8 @@ function global_OPT3(X, k, lower=nothing, upper=nothing, mute=false)
     centers = value.(centers)
     #objv, assign = obj_assign(centers, X) # here the objv should be a lower bound of CPLEX
     # get the real objective of the lower bound problem and no need to get he value assign
-    objv = getobjectivevalue(m)
+    #objv = getobjectivevalue(m)
+    objv = objective_bound(m)
     return centers, objv
 end
 
@@ -337,7 +338,8 @@ function global_OPT3_LD(X, k, lambda, lower=nothing, upper=nothing, mute=false)
     centers = value.(centers)
     #objv, assign = obj_assign(centers, X) # here the objv should be a lower bound of CPLEX
     # get the real objective of the lower bound problem and no need to get he value assign
-    objv = getobjectivevalue(m)
+    #objv = getobjectivevalue(m)
+    objv = objective_bound(m)
     return centers, objv
 end
 

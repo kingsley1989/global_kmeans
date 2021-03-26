@@ -27,7 +27,7 @@ using lb_par, lb_functions, bb_par, opt_functions
 #############################################################
 
 Random.seed!(0)
-clst_n = 500 # number of points in a cluster 
+clst_n = 1700 # number of points in a cluster 
 k = 3
 data = Array{Float64}(undef, 2, clst_n*k) # initial data array (clst_n*k)*2 
 label = Array{Float64}(undef, clst_n*k) # label is empty vector 1*(clst_n*k)
@@ -57,7 +57,7 @@ result = kmeans(data, k)
 centers_l, assign_l, objv_l = local_OPT(data, k)
 
 # branch&bound global optimization for kmeans clustering
-t = @elapsed centers, objv, calcInfo = bb_par.branch_bound_par(data, k, "LD+adaGp")
+t = @elapsed centers, objv, calcInfo = bb_par.branch_bound_par(data, k, "adaGp")
 
 @time test_ctrl = lb_functions.getLowerBound_Test(data, k, result.centers) # 129s
 @time test_ctrl_pl = lb_par.getLowerBound_Test_par(data, k, result.centers) # 30.85s
