@@ -150,7 +150,8 @@ function branch_bound_par(X, k, method = "Test")
             #upr = OBBT_max(X, k, node_UB, nothing, nothing, true, 2)
             #node = Node(lwr, upr, node.level, node.LB, node.groups);
         else
-            node_centers, node_UB = ub_functions.getUpperBound(X, k, node.lower, node.upper, tol)
+            node_UB = UB
+            # node_centers, node_UB = ub_functions.getUpperBound(X, k, node.lower, node.upper, tol)
         end    
         if (node_UB < UB)
             UB = node_UB
