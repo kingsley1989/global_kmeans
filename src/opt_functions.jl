@@ -9,7 +9,7 @@ using Random
 export obj_assign, local_OPT, global_OPT3, global_OPT_base, global_OPT_linear, global_OPT3_LD, global_OPT_oa, global_OPT_oa_base
 
 
-time_lapse = 900 # 15 mins
+time_lapse = 3600 # 15 mins
 
 ############# auxilary functions #############
 function obj_assign(centers, X)
