@@ -33,13 +33,21 @@ else
 end
 
 label = vec(label)
+<<<<<<< Updated upstream
 k = 3 #length(unique(label))
 Random.seed!(123)
 
+=======
+k = length(unique(label))
+Random.seed!(123)
+
+centers, objv, calcInfo = bb_par.branch_bound_par(data, k)
+>>>>>>> Stashed changes
 
 # local optimization for kmeans clustering
 centers_l, assign_l, objv_l = local_OPT(data, k)
 
+<<<<<<< Updated upstream
 t = @elapsed centers, objv, calcInfo = bb_par.branch_bound_par(data, k, "adaGp")
 
 # branch&bound global optimization for kmeans clustering
@@ -50,6 +58,16 @@ t_adp_LD = @elapsed centers_adp_LD, objv_adp_LD, calcInfo_adp_LD = bb_functions.
 
 # global optimization using CPLEX directly objv_lg is the lower bound of current solution
 t_g = @elapsed centers_g, objv_g, assign_g, gap_g = global_OPT_base(data, k)
+=======
+# branch&bound global optimization for kmeans clustering
+#t = @elapsed centers, objv, calcInfo = branch_bound(data, k)
+#t_LD = @elapsed centers_LD, objv_LD, calcInfo_LD = bb_functions.branch_bound_LD(data, k)
+#t_adp = @elapsed centers_adp, objv_adp, calcInfo_adp = bb_functions.branch_bound_adptGp(data, k) # 237s 11 iterations
+#t_adp_LD = @elapsed centers_adp_LD, objv_adp_LD, calcInfo_adp_LD = bb_functions.branch_bound_adptGp_LD(data, k) #
+
+# global optimization using CPLEX directly objv_lg is the lower bound of current solution
+#t_g = @elapsed centers_g, objv_g, assign_g, gap_g = global_OPT_base(data, k)
+>>>>>>> Stashed changes
 
 # kmeans results for comparison
 Random.seed!(0)
@@ -85,4 +103,8 @@ timeGapRlt = [[t_g t t_LD t_adp t_adp_LD]; [gap_g calcInfo[end][end] calcInfo_LD
 evalRlt = [eval_CPLEX[:,end] eval_orig[:,end] eval_LD[:,end] eval_adp[:,end] eval_adp_LD[:,end] [nmi_km_mean; vi_km; ari_km; objv_km_mean]]
 
 
+<<<<<<< Updated upstream
 rmprocs(procs()[2:nprocs()])
+=======
+rmprocs(procs()[2:nprocs()])
+>>>>>>> Stashed changes
