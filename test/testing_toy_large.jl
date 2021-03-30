@@ -10,23 +10,33 @@ if !("src/" in LOAD_PATH)
 end
 using data_process, bb_functions, opt_functions
 
-
-
 #############################################################
 ################# Main Process Program Body #################
 #############################################################
 
-# real world dataset testing
-if Sys.iswindows()
-    data, label = data_preprocess("seeds_dataset.txt", nothing, joinpath(@__DIR__, "..\\data\\")) # read data in Windows
-else
-    data, label = data_preprocess("seeds_dataset.txt", nothing, joinpath(@__DIR__, "data/")) # read data in Mac
+Random.seed!(1) #120
+clst_n = 7000 # number of points in a cluster 
+k = 3
+data = Array{Float64}(undef, 2, clst_n*k) # initial data array (clst_n*k)*2 
+label = Array{Float64}(undef, clst_n*k) # label is empty vector 1*(clst_n*k)
+mu = [60 8; 2 1; 200 200] # reshape(sample(1:30, k*2), k, 2) # [20 20; 2 1; 7 3] # sig: 1-5 # 
+# sig = [[0.7 0; 0 0.7],[1.5 0;0 1.5],[0.2 0;0 0.6]]
+# we can not do with a = [a, i] refer to Scope of Variables in julia documentation
+for i = 1:k 
+    sig = round.(sig_gen(sample(1:500, 2)))
+    print(sig)
+    clst = rand(MvNormal(mu[i,:], sig), clst_n) # data is 2*clst_n
+    data[:,((i-1)*clst_n+1):(i*clst_n)] = clst
+    label[((i-1)*clst_n+1):(i*clst_n)] = repeat([i], clst_n)
 end
 
-label = vec(label)
-k = length(unique(label))
-Random.seed!(123)
+k = nlabel(label) #length(unique(label))
+label = convertlabel(1:k, vec(label))
 
+# plot the original data
+#pyplot()
+#sctrplot = scatter(data[1,:], data[2,:], markercolor=label, legend = false)#, title = "Scatter Plot of Synthetic Dataset")
+#savefig(sctrplot, "pic/toy_$k-$clst_n.png")# string("toy_",k, "_", clst_n, ".png")
 
 # local optimization for kmeans clustering
 #centers_l, assign_l, objv_l = local_OPT(data, k)
@@ -34,8 +44,9 @@ Random.seed!(123)
 # branch&bound global optimization for kmeans clustering
 #t = @elapsed centers, objv, calcInfo = branch_bound(data, k, "SCEN")
 t_adp_LD = @elapsed centers_adp_LD, objv_adp_LD, calcInfo_adp_LD = bb_functions.branch_bound(data, k, "LD+adaGp") #
+println("solution time: ",  t_adp_LD)
 
-#t = @elapsed centers, objv, calcInfo = branch_bound(data, k)
+
 #t_LD = @elapsed centers_LD, objv_LD, calcInfo_LD = bb_functions.branch_bound_LD(data, k)
 #t_adp = @elapsed centers_adp, objv_adp, calcInfo_adp = bb_functions.branch_bound_adptGp(data, k) # 237s 11 iterations
 #t_adp_LD = @elapsed centers_adp_LD, objv_adp_LD, calcInfo_adp_LD = bb_functions.branch_bound_adptGp_LD(data, k) #
@@ -44,9 +55,10 @@ t_adp_LD = @elapsed centers_adp_LD, objv_adp_LD, calcInfo_adp_LD = bb_functions.
 #=
 # global optimization using CPLEX directly objv_lg is the lower bound of current solution
 t_g = @elapsed centers_g, objv_g, assign_g, gap_g = global_OPT_base(data, k)
+t_ln = @elapsed centers_ln, objv_ln, assign_ln, gap_ln = global_OPT_linear(data, k, nothing, nothing, false, 5)
 
 # kmeans results for comparison
-Random.seed!(23)
+Random.seed!(0)
 trail = 100
 nmi_km_list = []
 objv_km_list = []
@@ -67,10 +79,10 @@ rlt_km = kmeans(data, k)
 ~, vi_km, ari_km = cluster_eval(rlt_km.assignments, label)
 
 # plot branch and bound calculation process
-plotResult(calcInfo, "seeds")
-plotResult(calcInfo_LD, "seeds_LD")
-plotResult(calcInfo_adp, "seeds_adp")
-plotResult(calcInfo_adp_LD, "seeds_adp_LD")
+plotResult(calcInfo, "toy_$k-$clst_n")
+plotResult(calcInfo_LD, "toy_LD_$k-$clst_n")
+plotResult(calcInfo_adp, "toy_adp_$k-$clst_n")
+plotResult(calcInfo_adp_LD, "toy_adp_LD_$k-$clst_n")
 
 
 # Nested evaluation on the clustering results with kmeans
@@ -85,5 +97,5 @@ timeGapRlt = [[t_g t t_LD t_adp t_adp_LD]; [gap_g calcInfo[end][end] calcInfo_LD
 
 evalRlt = [eval_CPLEX[:,end] eval_orig[:,end] eval_LD[:,end] eval_adp[:,end] eval_adp_LD[:,end] [nmi_km_mean; vi_km; ari_km; objv_km_mean]]
 
-save("result/testing_seed.jld", "data", data,  "timeGapRlt", timeGapRlt, "evalRlt", evalRlt)
+save("result/testing_toy_$k-$clst_n.jld", "data", data,  "timeGapRlt", timeGapRlt, "evalRlt", evalRlt)
 =#

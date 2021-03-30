@@ -1,6 +1,6 @@
 using RDatasets, DataFrames, CSV
 using Random, Distributions
-using Plots#, StatsPlots
+#using Plots#, StatsPlots
 using MLDataUtils, Clustering
 using JLD
 
@@ -34,19 +34,24 @@ k = nlabel(label) #length(unique(label))
 label = convertlabel(1:k, vec(label))
 
 # plot the original data
-pyplot()
-sctrplot = scatter(data[1,:], data[2,:], markercolor=label, legend = false)#, title = "Scatter Plot of Synthetic Dataset")
-savefig(sctrplot, "pic/toy_$k-$clst_n.png")# string("toy_",k, "_", clst_n, ".png")
+#pyplot()
+#sctrplot = scatter(data[1,:], data[2,:], markercolor=label, legend = false)#, title = "Scatter Plot of Synthetic Dataset")
+#savefig(sctrplot, "pic/toy_$k-$clst_n.png")# string("toy_",k, "_", clst_n, ".png")
 
 # local optimization for kmeans clustering
-centers_l, assign_l, objv_l = local_OPT(data, k)
+#centers_l, assign_l, objv_l = local_OPT(data, k)
 
 # branch&bound global optimization for kmeans clustering
-t = @elapsed centers, objv, calcInfo = branch_bound(data, k)
-t_LD = @elapsed centers_LD, objv_LD, calcInfo_LD = bb_functions.branch_bound_LD(data, k)
-t_adp = @elapsed centers_adp, objv_adp, calcInfo_adp = bb_functions.branch_bound_adptGp(data, k) # 237s 11 iterations
-t_adp_LD = @elapsed centers_adp_LD, objv_adp_LD, calcInfo_adp_LD = bb_functions.branch_bound_adptGp_LD(data, k) #
+#t = @elapsed centers, objv, calcInfo = branch_bound(data, k, "SCEN")
+t_adp_LD = @elapsed centers_adp_LD, objv_adp_LD, calcInfo_adp_LD = bb_functions.branch_bound(data, k, "LD+adaGp") #
 
+
+#t_LD = @elapsed centers_LD, objv_LD, calcInfo_LD = bb_functions.branch_bound_LD(data, k)
+#t_adp = @elapsed centers_adp, objv_adp, calcInfo_adp = bb_functions.branch_bound_adptGp(data, k) # 237s 11 iterations
+#t_adp_LD = @elapsed centers_adp_LD, objv_adp_LD, calcInfo_adp_LD = bb_functions.branch_bound_adptGp_LD(data, k) #
+
+
+#=
 # global optimization using CPLEX directly objv_lg is the lower bound of current solution
 t_g = @elapsed centers_g, objv_g, assign_g, gap_g = global_OPT_base(data, k)
 t_ln = @elapsed centers_ln, objv_ln, assign_ln, gap_ln = global_OPT_linear(data, k, nothing, nothing, false, 5)
@@ -92,3 +97,4 @@ timeGapRlt = [[t_g t t_LD t_adp t_adp_LD]; [gap_g calcInfo[end][end] calcInfo_LD
 evalRlt = [eval_CPLEX[:,end] eval_orig[:,end] eval_LD[:,end] eval_adp[:,end] eval_adp_LD[:,end] [nmi_km_mean; vi_km; ari_km; objv_km_mean]]
 
 save("result/testing_toy_$k-$clst_n.jld", "data", data,  "timeGapRlt", timeGapRlt, "evalRlt", evalRlt)
+=#

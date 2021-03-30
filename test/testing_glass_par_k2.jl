@@ -1,16 +1,21 @@
+
 using RDatasets, DataFrames, CSV
 using Random, Distributions
 #using Plots#, StatsPlots
 using MLDataUtils, Clustering
 using JLD
 
+
+using Distributed, SharedArrays
+addprocs(20-nprocs())
+println("Running ",nprocs()," processes")
+
 # load functions for branch&bound and data preprocess from self-created module
-if !("src/" in LOAD_PATH)
+@everywhere if !("src/" in LOAD_PATH)
     push!(LOAD_PATH, "src/")
 end
+
 using data_process, bb_functions, opt_functions
-
-
 
 #############################################################
 ################# Main Process Program Body #################
@@ -18,35 +23,39 @@ using data_process, bb_functions, opt_functions
 
 # real world dataset testing
 if Sys.iswindows()
-    data, label = data_preprocess("seeds_dataset.txt", nothing, joinpath(@__DIR__, "..\\data\\")) # read data in Windows
+    data, label = data_preprocess("glass.data", nothing, joinpath(@__DIR__, "..\\data\\")) # read data in Windows
 else
-    data, label = data_preprocess("seeds_dataset.txt", nothing, joinpath(@__DIR__, "data/")) # read data in Mac
+    data, label = data_preprocess("glass.data", nothing, joinpath(@__DIR__, "data/")) # read data in Mac
 end
 
 label = vec(label)
-k = length(unique(label))
+k = 2
 Random.seed!(123)
 
 
+
+t_adp_LD = @elapsed centers_adp_LD, objv_adp_LD, calcInfo_adp_LD = bb_functions.branch_bound(data, k, "LD+adaGp")
+println("solution time: ",  t_adp_LD)
+
+
+
+#=
+centers, objv, calcInfo = bb_par.branch_bound_par(data, k)
+
 # local optimization for kmeans clustering
-#centers_l, assign_l, objv_l = local_OPT(data, k)
+centers_l, assign_l, objv_l = local_OPT(data, k)
 
 # branch&bound global optimization for kmeans clustering
-#t = @elapsed centers, objv, calcInfo = branch_bound(data, k, "SCEN")
-t_adp_LD = @elapsed centers_adp_LD, objv_adp_LD, calcInfo_adp_LD = bb_functions.branch_bound(data, k, "LD+adaGp") #
-
 #t = @elapsed centers, objv, calcInfo = branch_bound(data, k)
 #t_LD = @elapsed centers_LD, objv_LD, calcInfo_LD = bb_functions.branch_bound_LD(data, k)
 #t_adp = @elapsed centers_adp, objv_adp, calcInfo_adp = bb_functions.branch_bound_adptGp(data, k) # 237s 11 iterations
 #t_adp_LD = @elapsed centers_adp_LD, objv_adp_LD, calcInfo_adp_LD = bb_functions.branch_bound_adptGp_LD(data, k) #
 
-
-#=
 # global optimization using CPLEX directly objv_lg is the lower bound of current solution
-t_g = @elapsed centers_g, objv_g, assign_g, gap_g = global_OPT_base(data, k)
+#t_g = @elapsed centers_g, objv_g, assign_g, gap_g = global_OPT_base(data, k)
 
 # kmeans results for comparison
-Random.seed!(23)
+Random.seed!(0)
 trail = 100
 nmi_km_list = []
 objv_km_list = []
@@ -66,13 +75,6 @@ println([nmi_km_list[nmi_km_max] nmi_km_mean nmi_km_list[nmi_km_min]; objv_km_ma
 rlt_km = kmeans(data, k)
 ~, vi_km, ari_km = cluster_eval(rlt_km.assignments, label)
 
-# plot branch and bound calculation process
-plotResult(calcInfo, "seeds")
-plotResult(calcInfo_LD, "seeds_LD")
-plotResult(calcInfo_adp, "seeds_adp")
-plotResult(calcInfo_adp_LD, "seeds_adp_LD")
-
-
 # Nested evaluation on the clustering results with kmeans
 eval_CPLEX = nestedEval(data, label, centers_g, objv_g, rlt_km) # evaluation with CPLEX solver
 eval_orig = nestedEval(data, label, centers, objv, rlt_km) # evaluation with orignal bb
@@ -85,5 +87,6 @@ timeGapRlt = [[t_g t t_LD t_adp t_adp_LD]; [gap_g calcInfo[end][end] calcInfo_LD
 
 evalRlt = [eval_CPLEX[:,end] eval_orig[:,end] eval_LD[:,end] eval_adp[:,end] eval_adp_LD[:,end] [nmi_km_mean; vi_km; ari_km; objv_km_mean]]
 
-save("result/testing_seed.jld", "data", data,  "timeGapRlt", timeGapRlt, "evalRlt", evalRlt)
+
+rmprocs(procs()[2:nprocs()])
 =#

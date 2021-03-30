@@ -5,6 +5,9 @@ using LinearAlgebra
 using MLDataUtils, Clustering #, MLBase
 using opt_functions
 
+using Distributed, SharedArrays
+@everywhere using opt_functions
+
 #export getLowerBound_adptGp
 
 # function to calcuate the median value of a vector
@@ -12,13 +15,17 @@ function med(a,b,c)
     return a+b+c-max(a,b,c)-min(a,b,c)
 end
 
+
+tol = 1e-6
+mingap = 1e-3
+
 ############## Original lower bound calculation ##############
 
 # first original function for calcualting lower bound
 function getLowerBound_Test(X, k, centers, lower=nothing, upper=nothing)
     ~, assign = obj_assign(centers, X); # objv as a qUB
     d, n = size(X);
-    ngroups = round(Int, n/k/10); # determine the number of groups, 10*k points in each group, 5*k for large problems (d*k>10 or n>1500)
+    ngroups = round(Int, n/k/5); # determine the number of groups, 10*k points in each group, 5*k for large problems (d*k>10 or n>1500)
     
     groups = [[] for i=1:ngroups];
     ng = 0; # heuristic improve grouping 
@@ -49,8 +56,9 @@ end
 ############## Lower bound calculation with closed-form ##############
 function getLowerBound_analytic(X, k, lower=nothing, upper=nothing)
     d, n = size(X)
-    lower, upper = opt_functions.init_bound(X, d, k, lower, upper)
-
+    if lower == nothing
+        lower, upper = opt_functions.init_bound(X, d, k, lower, upper)
+    end
     # get the mid value of each mu for each cluster
     # start calculating the lower bound (distance of x_s to its closest mu)
     LB = 0
@@ -159,20 +167,23 @@ function updateLambda_subgrad_2(lambda_vec, qUB, LB, centers_gp, alpha = 1)
     return reshape(lambda_vec, d, k, ngroups-1) # change back with d*k*(g-1)
 end
 
-function LD_2(X, d, k, ngroups, groups, qUB, lower=nothing, upper=nothing)
-    lambda = zeros(d, k, ngroups+1) # d*k*(g+1) initialize lambda with 0
+function LD_2(X, d, k, ngroups, groups, qUB, lambda=nothing, lower=nothing, upper=nothing)
+    ncores = nprocs() 	 
+    if lambda == nothing
+        lambda = zeros(d, k, ngroups+1) # d*k*(g+1) initialize lambda with 0
+    end
     # inital calculation for LB with zero lambda
     LB = 0
     # start LB caculation with lambda updating process
     maxLB = -Inf
     #i = 0
     alpha = 1
-    while  (alpha >= 1.0e-6) & (LB >= maxLB) # norm(lambda, Inf) > 0.1 # (qUB-maxLB)/min(abs(qUB)) >= 0.01 # 
-        if LB > qUB
-            maxLB = LB
-            break
-        end
-        maxLB = LB
+    trial = 0
+    trial_no_improve = 0
+    maxtrial = 20
+    maxtrial_no_improve = 2
+    group_centers = nothing
+    while  (alpha >= 1.0e-6) && (trial <= maxtrial) && (trial_no_improve <= maxtrial_no_improve)    # norm(lambda, Inf) > 0.1 # (qUB-maxLB)/min(abs(qUB)) >= 0.01 #    
         #println("============lambda============")
         #println(lambda)
         # here lambda input is a vectors but output is the matrix    
@@ -181,32 +192,58 @@ function LD_2(X, d, k, ngroups, groups, qUB, lower=nothing, upper=nothing)
         
         # lambda dimensions: d*k*(ngroups+1) [0-ngroups]
         # lambda[:,:,1] --> lambda_0, lambda[:,:,ng+1] --> lambda_ng, both are 0 here.
-        for i = 1:ngroups
-            # assign is not necessary
-            print("=")
-            centers, objv = opt_functions.global_OPT3_LD(X[:,groups[i]], k, 
+	if ncores == 1
+            for i = 1:ngroups
+            	# assign is not necessary
+            	print("=")
+            	centers, objv = opt_functions.global_OPT3_LD(X[:,groups[i]], k, 
                 lambda[:,:,i:(i+1)], lower, upper, true);
-            centers_gp[:,:,i] = centers; # i for groups and centers are corresponding to i+1 of lambda
-            LB += objv;
-        end
+            	centers_gp[:,:,i] = centers; # i for groups and centers are corresponding to i+1 of lambda
+            	LB += objv;
+		println("group    ", i, "   objv:   ", objv, "     ",LB)
+	    end
+	else
+	    # rlt_gp: (center, objv)
+            rlt_gp = pmap(i -> opt_functions.global_OPT3_LD(X[:,groups[i]], k, lambda[:,:,i:(i+1)], lower, upper, true), 1:ngroups)
+            # centers
+            for i in 1:length(rlt_gp)
+            	centers_gp[:, :, i] = rlt_gp[i][1]
+            end
+            # lower bound
+            LB = @distributed (+) for rlt in rlt_gp
+               rlt[2]
+            end
+	end
+	if maxLB <= LB
+	    if (LB - maxLB) >= max(mingap, mingap*abs(qUB), 0.1*(abs(qUB)-maxLB))
+	        trial_no_improve = 0
+	    end 
+	    maxLB = LB
+	    group_centers = centers_gp 
+	    if (qUB-LB)<= mingap || (qUB-LB) <= mingap*abs(qUB)
+	        break
+	    end
+	end
         println("")
         # update lambda before the new loop
         # here we only need to update lambda[:,:,2:ngroups] (actaully is 1:(ngroups-1))
         lambda[:,:,2:ngroups] = updateLambda_subgrad_2(vec(lambda[:,:,2:ngroups]), qUB, LB, centers_gp, alpha)
-        alpha = 0.8*alpha 
+        alpha = 0.85*alpha 
         println(LB)
+	trial_no_improve += 1
+	trial += 1
         #i += 1
     end
-
-    return maxLB
+    return max(0, maxLB), lambda, group_centers
 end
 
 # first original function for calcualting lower bound
 function getLowerBound_LD(X, k, centers, lower=nothing, upper=nothing)
     obj_ub, assign = obj_assign(centers, X); # objv as a qUB
     d, n = size(X);
-    ngroups = round(Int, n/k/10); # determine the number of groups, 10*k points in each group, 5*k for large problems (d*k>10 or n>1500)
-    
+    #ngroups = round(Int, n/k/5); # determine the number of groups, 10*k points in each group, 5*k for large problems (d*k>10 or n>1500)
+    ngroups = round(Int, n/( 150/k/d ));
+
     groups = [[] for i=1:ngroups];
     ng = 0; # heuristic improve grouping 
     for i = 1:k
@@ -268,6 +305,7 @@ end
 # grouping function that stratified on assign and select data evenly by applying kmeans clustering on each cluster
 # the sampling will have a bug in kmeans grouping with sample function when the smallest cluster only has p data points, which p < 2*ngroups
 function kmeans_group(X, assign, ngroups)
+    Random.seed!(123)
     clst_label, clst_idx = unique_inverse(assign)
     # number of sub-cluster for each cluster, k_sub <= clst_size/ngroups, which is length(clst_idx[i])/ngroups
     # we have to check if the cluster size p is too small that p < ngroups, just set k_sub as 2, 
@@ -299,7 +337,7 @@ function getLowerBound_adptGp(X, k, centers, parent_groups=nothing, lower=nothin
     # first generate new grouping based the assignment of current centers
     ~, assign = obj_assign(centers, X);
     d, n = size(X);
-    ngroups = round(Int, n/k/10); # determine the number of groups, 10*k points in each group, 5*k for large problems (d*k>10 or n>1500)
+    ngroups = round(Int, n/k/5); # determine the number of groups, 10*k points in each group, 5*k for large problems (d*k>10 or n>1500)
     groups = kmeans_group(X, assign, ngroups)
     # calculate the lower bound
     LB = 0
@@ -330,24 +368,30 @@ end
 
 ############## Lower bound calculation with adaptive sub-grouping and largrangean decomposition ##############
 
-function getLowerBound_adptGp_LD(X, k, centers, parent_groups=nothing, lower=nothing, upper=nothing,  glbLB=-Inf)
+function getLowerBound_adptGp_LD(X, k, centers, parent_lambda = nothing, parent_groups=nothing, lower=nothing, upper=nothing,  glbLB=-Inf)
     # first generate new grouping based the assignment of current centers
     obj_ub, assign = obj_assign(centers, X);
     d, n = size(X);
-    ngroups = round(Int, n/k/10); # determine the number of groups, 10*k points in each group, 5*k for large problems (d*k>10 or n>1500)
+    ngroups = round(Int, n/k/5); # determine the number of groups, 10*k points in each group, 5*k for large problems (d*k>10 or n>1500)
+    ngroups = round(Int, n*d*k/150);
     groups = kmeans_group(X, assign, ngroups)
+    println("groups:    ",groups)
     println(length.(groups))
     # calculate the lower bound with largrangean decomposition
-    LB = LD_2(X, d, k, ngroups, groups, obj_ub, lower, upper)
+    LB, lambda, group_centers= LD_2(X, d, k, ngroups, groups, obj_ub, parent_lambda, lower, upper)
 
     # check if LB with new grouping lower than the LB of parent node
     if (LB < glbLB) #|| (LB > obj_ub) # if LB is smaller, than adopt the parent grouping
         groups = parent_groups
         # calculate the lower bound with largrangean decomposition
-        LB_n = LD_2(X, d, k, ngroups, groups, obj_ub, lower, upper)
+        LB_n, lambda_n, group_centers_n = LD_2(X, d, k, ngroups, groups, obj_ub, parent_lambda, lower, upper)
+	if LB_n > LB   
+	    lambda = lambda_n
+	    group_centers = group_centers_n
+	end
         LB = max(LB, LB_n)
     end
-    return LB, groups
+    return LB, groups, lambda, group_centers
 end
 
 

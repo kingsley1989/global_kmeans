@@ -27,6 +27,7 @@ function OBBT_min(X, k, UB, lower=nothing, upper=nothing, mute=false, nlines = 1
             if mute
                 set_optimizer_attribute(m, "CPX_PARAM_SCRIND", 0)
             end
+	    set_optimizer_attribute(m, "CPX_PARAM_THREADS",1)
             set_optimizer_attribute(m, "CPX_PARAM_TILIM", time_lapse) # maximum runtime limit is 10 mins
             @variable(m, lower[t,i] <= centers[t in 1:d, i in 1:k] <= upper[t,i], start=rand());
             @constraint(m, [j in 1:k-1], centers[1,j]<= centers[1,j+1])
@@ -83,6 +84,7 @@ function OBBT_max(X, k, UB, lower=nothing, upper=nothing, mute=false, nlines = 1
             if mute
                 set_optimizer_attribute(m, "CPX_PARAM_SCRIND", 0)
             end
+	    set_optimizer_attribute(m, "CPX_PARAM_THREADS",1)
             set_optimizer_attribute(m, "CPX_PARAM_TILIM", time_lapse) # maximum runtime limit is 10 mins
             @variable(m, lower[t,i] <= centers[t in 1:d, i in 1:k] <= upper[t,i], start=rand());
             @constraint(m, [j in 1:k-1], centers[1,j]<= centers[1,j+1])
