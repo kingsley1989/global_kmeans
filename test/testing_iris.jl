@@ -4,11 +4,24 @@ using Random, Distributions
 using MLDataUtils, Clustering
 using JLD
 
+using Distributed, SharedArrays
+
+if ARGS[1] == "HPC"
+    using ClusterManagers
+    addprocs_slurm(parse(Int, ENV["SLURM_NTASKS"])-nprocs(), 
+            nodes=parse(Int, ENV["SLURM_JOB_NUM_NODES"]))
+else # ARGS[1]==core number if ARGS[1]==1, then it is serial computing
+    addprocs(parse(Int, ARGS[1])-nprocs())
+end
+
+println("Running ",nprocs()," processes")
+
 # load functions for branch&bound and data preprocess from self-created module
-if !("src/" in LOAD_PATH)
+@everywhere if !("src/" in LOAD_PATH)
     push!(LOAD_PATH, "src/")
 end
-using data_process, bb_functions, opt_functions
+
+using data_process, bb_functions, opt_functions, lb_functions, Nodes
 
 
 
@@ -20,16 +33,19 @@ using data_process, bb_functions, opt_functions
 data, label = data_preprocess("iris") # read iris data from datasets package
 
 label = vec(label)
-k = length(unique(label))
+k =3  #parse(Int, ARGS[2]) #length(unique(label))
 Random.seed!(123)
 
 
 # local optimization for kmeans clustering
 #centers_l, assign_l, objv_l = local_OPT(data, k)
 
+############ branch_bound test ###################
 # branch&bound global optimization for kmeans clustering
 #t = @elapsed centers, objv, calcInfo = bb_functions.branch_bound(data, k, "SCEN")
 t_adp_LD = @elapsed centers_adp_LD, objv_adp_LD, calcInfo_adp_LD = bb_functions.branch_bound(data, k, "LD+adaGp") #
+println("Iris:\tsolution time: ",  t_adp_LD, "\tfinal gap: ", calcInfo_adp_LD[end][end])
+
 
 #t_LD = @elapsed centers_LD, objv_LD, calcInfo_LD = bb_functions.branch_bound_LD(data, k)
 #t_adp = @elapsed centers_adp, objv_adp, calcInfo_adp = bb_functions.branch_bound_adptGp(data, k) # 237s 11 iterations
@@ -85,3 +101,5 @@ evalRlt = [eval_CPLEX[:,end] eval_orig[:,end] eval_LD[:,end] eval_adp[:,end] eva
 
 save("result/testing_iris.jld", "data", data,  "timeGapRlt", timeGapRlt, "evalRlt", evalRlt)
 =#
+
+rmprocs(procs()[2:nprocs()])

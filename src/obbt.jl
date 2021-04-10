@@ -12,7 +12,7 @@ export OBBT_min, OBBT_max
 time_lapse = 180 # 10 mins
 
 # nlines represents 2*nlines lines added as the outer approximation for the problem
-function OBBT_min(X, k, UB, lower=nothing, upper=nothing, mute=false, nlines = 1)
+function OBBT_min(X, k, UB, w_sos, lower=nothing, upper=nothing, mute=false, nlines = 1)
     d, n = size(X)
     lower, upper = opt_functions.init_bound(X, d, k, lower, upper)
     dmat_max = opt_functions.max_dist(X, d, k, n, lower, upper)  
@@ -27,7 +27,7 @@ function OBBT_min(X, k, UB, lower=nothing, upper=nothing, mute=false, nlines = 1
             if mute
                 set_optimizer_attribute(m, "CPX_PARAM_SCRIND", 0)
             end
-	    set_optimizer_attribute(m, "CPX_PARAM_THREADS",1)
+	        set_optimizer_attribute(m, "CPX_PARAM_THREADS",1)
             set_optimizer_attribute(m, "CPX_PARAM_TILIM", time_lapse) # maximum runtime limit is 10 mins
             @variable(m, lower[t,i] <= centers[t in 1:d, i in 1:k] <= upper[t,i], start=rand());
             @constraint(m, [j in 1:k-1], centers[1,j]<= centers[1,j+1])
@@ -46,11 +46,13 @@ function OBBT_min(X, k, UB, lower=nothing, upper=nothing, mute=false, nlines = 1
             # add constraint for upper bound of w, may not necessary
             # @constraint(m, [t in 1:d, i in 1:k], w[t,i] <= (upper[t,i]+lower[t,i])*centers[t,i]-upper[t,i]*lower[t,i])
 
-            @variable(m, lambda[1:k, 1:n], Bin)
-            @constraint(m, [j in 1:n], sum(lambda[i,j] for i in 1:k) == 1);
-            @variable(m, costs[1:n], start=rand());
-            @constraint(m, [i in 1:k, j in 1:n], costs[j] - dmat[i,j] >= -dmat_max[i,j]*(1-lambda[i,j]))
-            @constraint(m, [i in 1:k, j in 1:n], costs[j] - dmat[i,j] <= dmat_max[i,j]*(1-lambda[i,j]))
+            @variable(m, b[1:k, 1:n], Bin)
+            @constraint(m, [j in 1:n], sum(b[i,j] for i in 1:k) == 1);
+            @constraint(m, [j in 1:n], b[:,j] in MOI.SOS1(w_sos[:,j]))
+
+            @variable(m, costs[1:n]>=0, start=rand());
+            @constraint(m, [i in 1:k, j in 1:n], costs[j] - dmat[i,j] >= -dmat_max[i,j]*(1-b[i,j]))
+            @constraint(m, [i in 1:k, j in 1:n], costs[j] - dmat[i,j] <= dmat_max[i,j]*(1-b[i,j]))
             @constraint(m, sum(costs[j] for j in 1:n)<= UB) # add the constraint that the total cost should lower than current UB
 
             @objective(m, Min, centers[dim, clst]);
@@ -69,7 +71,7 @@ function OBBT_min(X, k, UB, lower=nothing, upper=nothing, mute=false, nlines = 1
 end
 
 
-function OBBT_max(X, k, UB, lower=nothing, upper=nothing, mute=false, nlines = 1)
+function OBBT_max(X, k, UB, w_sos, lower=nothing, upper=nothing, mute=false, nlines = 1)
     d, n = size(X)
     lower, upper = opt_functions.init_bound(X, d, k, lower, upper)
     dmat_max = opt_functions.max_dist(X, d, k, n, lower, upper)
@@ -84,7 +86,7 @@ function OBBT_max(X, k, UB, lower=nothing, upper=nothing, mute=false, nlines = 1
             if mute
                 set_optimizer_attribute(m, "CPX_PARAM_SCRIND", 0)
             end
-	    set_optimizer_attribute(m, "CPX_PARAM_THREADS",1)
+	        set_optimizer_attribute(m, "CPX_PARAM_THREADS",1)
             set_optimizer_attribute(m, "CPX_PARAM_TILIM", time_lapse) # maximum runtime limit is 10 mins
             @variable(m, lower[t,i] <= centers[t in 1:d, i in 1:k] <= upper[t,i], start=rand());
             @constraint(m, [j in 1:k-1], centers[1,j]<= centers[1,j+1])
@@ -103,11 +105,13 @@ function OBBT_max(X, k, UB, lower=nothing, upper=nothing, mute=false, nlines = 1
             # add constraint for upper bound of w, may not necessary
             # @constraint(m, [t in 1:d, i in 1:k], w[t,i] <= (upper[t,i]+lower[t,i])*centers[t,i]-upper[t,i]*lower[t,i])
 
-            @variable(m, lambda[1:k, 1:n], Bin)
-            @constraint(m, [j in 1:n], sum(lambda[i,j] for i in 1:k) == 1);
-            @variable(m, costs[1:n], start=rand());
-            @constraint(m, [i in 1:k, j in 1:n], costs[j] - dmat[i,j] >= -dmat_max[i,j]*(1-lambda[i,j]))
-            @constraint(m, [i in 1:k, j in 1:n], costs[j] - dmat[i,j] <= dmat_max[i,j]*(1-lambda[i,j]))
+            @variable(m, b[1:k, 1:n], Bin)
+            @constraint(m, [j in 1:n], sum(b[i,j] for i in 1:k) == 1);
+            @constraint(m, [j in 1:n], b[:,j] in MOI.SOS1(w_sos[:,j]))
+
+            @variable(m, costs[1:n]>=0, start=rand());
+            @constraint(m, [i in 1:k, j in 1:n], costs[j] - dmat[i,j] >= -dmat_max[i,j]*(1-b[i,j]))
+            @constraint(m, [i in 1:k, j in 1:n], costs[j] - dmat[i,j] <= dmat_max[i,j]*(1-b[i,j]))
             @constraint(m, sum(costs[j] for j in 1:n)<= UB) # add the constraint that the total cost should lower than current UB
 
             @objective(m, Max, centers[dim, clst]);

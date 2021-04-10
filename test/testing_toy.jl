@@ -4,26 +4,41 @@ using Random, Distributions
 using MLDataUtils, Clustering
 using JLD
 
+using Distributed, SharedArrays
+
+if ARGS[1] == "HPC"
+    using ClusterManagers
+    addprocs_slurm(parse(Int, ENV["SLURM_NTASKS"])-nprocs(), 
+            nodes=parse(Int, ENV["SLURM_JOB_NUM_NODES"]))
+else # ARGS[1]==core number if ARGS[1]==1, then it is serial computing
+    addprocs(parse(Int, ARGS[1])-nprocs())
+end
+
+println("Running ",nprocs()," processes")
+
 # load functions for branch&bound and data preprocess from self-created module
-if !("src/" in LOAD_PATH)
+@everywhere if !("src/" in LOAD_PATH)
     push!(LOAD_PATH, "src/")
 end
+
 using data_process, bb_functions, opt_functions
+
+
 
 #############################################################
 ################# Main Process Program Body #################
 #############################################################
 
 Random.seed!(1) #120
-clst_n = 700 # number of points in a cluster 
-k = 3
+clst_n = parse(Int, ARGS[3])  # number of points in a cluster 
+k = parse(Int, ARGS[2]) 
 data = Array{Float64}(undef, 2, clst_n*k) # initial data array (clst_n*k)*2 
 label = Array{Float64}(undef, clst_n*k) # label is empty vector 1*(clst_n*k)
-mu = [60 8; 2 1; 200 200] # reshape(sample(1:30, k*2), k, 2) # [20 20; 2 1; 7 3] # sig: 1-5 # 
+mu = reshape(sample(1:30, k*2), k, 2) # [60 8; 2 1; 200 200] # [20 20; 2 1; 7 3] # sig: 1-5 # 
 # sig = [[0.7 0; 0 0.7],[1.5 0;0 1.5],[0.2 0;0 0.6]]
 # we can not do with a = [a, i] refer to Scope of Variables in julia documentation
 for i = 1:k 
-    sig = round.(sig_gen(sample(1:500, 2)))
+    sig = round.(sig_gen(sample(1:10, 2)))
     print(sig)
     clst = rand(MvNormal(mu[i,:], sig), clst_n) # data is 2*clst_n
     data[:,((i-1)*clst_n+1):(i*clst_n)] = clst
@@ -44,6 +59,14 @@ label = convertlabel(1:k, vec(label))
 # branch&bound global optimization for kmeans clustering
 #t = @elapsed centers, objv, calcInfo = branch_bound(data, k, "SCEN")
 t_adp_LD = @elapsed centers_adp_LD, objv_adp_LD, calcInfo_adp_LD = bb_functions.branch_bound(data, k, "LD+adaGp") #
+println("Iris:\tsolution time: ",  t_adp_LD, "\tfinal gap: ", calcInfo_adp_LD[end][end])
+
+
+
+
+
+
+
 
 
 #t_LD = @elapsed centers_LD, objv_LD, calcInfo_LD = bb_functions.branch_bound_LD(data, k)
@@ -98,3 +121,5 @@ evalRlt = [eval_CPLEX[:,end] eval_orig[:,end] eval_LD[:,end] eval_adp[:,end] eva
 
 save("result/testing_toy_$k-$clst_n.jld", "data", data,  "timeGapRlt", timeGapRlt, "evalRlt", evalRlt)
 =#
+
+rmprocs(procs()[2:nprocs()])

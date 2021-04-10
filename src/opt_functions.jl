@@ -9,7 +9,7 @@ using Random
 export obj_assign, local_OPT, global_OPT3, global_OPT_base, global_OPT_linear, global_OPT3_LD, global_OPT_oa, global_OPT_oa_base
 
 
-time_lapse = 3600 # 15 mins
+time_lapse = 900 # 15 mins
 
 ############# auxilary functions #############
 function obj_assign(centers, X)
@@ -36,10 +36,10 @@ function init_bound(X, d, k, lower=nothing, upper=nothing)
     lower_data = Vector{Float64}(undef, d)
     upper_data = Vector{Float64}(undef, d)
     for i = 1:d # get the feasible region of center
-        lower_data[i] = minimum(X[i,:])
+        lower_data[i] = minimum(X[i,:]) # i is the row and is the dimension 
         upper_data[i] = maximum(X[i,:])
     end
-    lower_data = repeat(lower_data, 1, k)
+    lower_data = repeat(lower_data, 1, k) # first arg repeat on row, second repeat on col
     upper_data = repeat(upper_data, 1, k)
 
     if lower === nothing
@@ -100,6 +100,7 @@ function global_OPT_base(X, k, lower=nothing, upper=nothing, mute=false)
     if mute
         set_optimizer_attribute(m, "CPX_PARAM_SCRIND", 0)
     end
+    set_optimizer_attribute(m, "CPX_PARAM_THREADS",1)
     set_optimizer_attribute(m, "CPX_PARAM_TILIM", time_lapse*16) # maximum runtime limit is time_lapse*16 or set to 4/12 hours
     set_optimizer_attribute(m, "CPX_PARAM_MIQCPSTRAT", 1) # 0 for qcp relax and 1 for lp oa relax.
     @variable(m, lower[t,i] <= centers[t in 1:d, i in 1:k] <= upper[t,i], start=rand());
@@ -131,6 +132,7 @@ function linear_OPT(X, k, lower=nothing, upper=nothing, mute=false, nlines = 3, 
     if mute
         set_optimizer_attribute(m, "CPX_PARAM_SCRIND", 0)
     end
+    set_optimizer_attribute(m, "CPX_PARAM_THREADS",1)
     set_optimizer_attribute(m, "CPX_PARAM_TILIM", time) # maximum runtime limit is 4 hours
     @variable(m, lower[t,i] <= centers[t in 1:d, i in 1:k] <= upper[t,i], start=rand());
     @constraint(m, [j in 1:k-1], centers[1,j]<= centers[1,j+1])
@@ -186,7 +188,7 @@ end
 
 
 # oa problem initialization functions
-function oa_init_OPT(X, d, k, n, lower=nothing, upper=nothing, mute=false)
+function oa_init_OPT(X, d, k, n, km_centers, lower=nothing, upper=nothing, mute=false)
     lower, upper = opt_functions.init_bound(X, d, k, lower, upper)
     dmat_max = opt_functions.max_dist(X, d, k, n, lower, upper)
 
@@ -195,6 +197,7 @@ function oa_init_OPT(X, d, k, n, lower=nothing, upper=nothing, mute=false)
     if mute
         set_optimizer_attribute(m, "CPX_PARAM_SCRIND", 0)
     end
+    set_optimizer_attribute(m, "CPX_PARAM_THREADS",1)
     set_optimizer_attribute(m, "CPX_PARAM_TILIM", 150) # maximum runtime limit is 4 hours
     @variable(m, lower[t,i] <= centers[t in 1:d, i in 1:k] <= upper[t,i], start=rand());
     @constraint(m, [j in 1:k-1], centers[1,j]<= centers[1,j+1])
@@ -207,7 +210,9 @@ function oa_init_OPT(X, d, k, n, lower=nothing, upper=nothing, mute=false)
     # binary constraints
     @variable(m, lambda[1:k, 1:n], Bin)
     @constraint(m, [j in 1:n], sum(lambda[i,j] for i in 1:k) == 1);
-    @variable(m, costs[1:n], start=rand());
+    @constraint(m, [j in 1:n], b[:,j] in MOI.SOS1([sum((X[t,j] - km_centers[t,i])^2 for t in 1:d) for i in 1:k]))
+
+    @variable(m, costs[1:n]>=0, start=rand());
     @constraint(m, [i in 1:k, j in 1:n], costs[j] - dmat[i,j] >= -dmat_max[i,j]*(1-lambda[i,j]))
     @constraint(m, [i in 1:k, j in 1:n], costs[j] - dmat[i,j] <= dmat_max[i,j]*(1-lambda[i,j]))
 
@@ -283,10 +288,10 @@ function global_OPT3(X, k, lower=nothing, upper=nothing, mute=false)
     if mute
         set_optimizer_attribute(m, "CPX_PARAM_SCRIND", 0) # this varible control the print of CPLEX solving process
     end
+    set_optimizer_attribute(m, "CPX_PARAM_THREADS",1)
     set_optimizer_attribute(m, "CPX_PARAM_TILIM", time_lapse) # maximum runtime limit is 1 hours
-    set_optimizer_attribute(m, "CPXPARAM_Threads", 1) # set maximum thread to 1, let the cplex to run in sequential
     # here the gap should always < mingap of BB, e.g. if mingap = 0.1%, then gap here should be < 0.1%, the default is 0.01%
-    # set_optimizer_attribute(m, "CPX_PARAM_EPGAP", 0.1) 
+    set_optimizer_attribute(m, "CPX_PARAM_EPGAP", 0.05) 
     @variable(m, lower[t,i] <= centers[t in 1:d, i in 1:k] <= upper[t,i], start=rand());
     @constraint(m, [j in 1:k-1], centers[1,j]<= centers[1,j+1])
     @variable(m, 0<=dmat[i in 1:k, j in 1:n]<=dmat_max[i,j], start=rand());
@@ -302,10 +307,6 @@ function global_OPT3(X, k, lower=nothing, upper=nothing, mute=false)
     centers = value.(centers)
     #objv, assign = obj_assign(centers, X) # here the objv should be a lower bound of CPLEX
     # get the real objective of the lower bound problem and no need to get he value assign
-<<<<<<< Updated upstream
-    #objv = getobjectivevalue(m)
-=======
->>>>>>> Stashed changes
     objv = objective_bound(m)
     return centers, objv
 end
@@ -313,39 +314,45 @@ end
 
 # reduced bb subproblem solvers with largranian decomposition
 # here the labmda is the largrange multiplier
-function global_OPT3_LD(X, k, lambda, lower=nothing, upper=nothing, mute=false)
+function global_OPT3_LD(X, k, lambda, w_sos=nothing, lower=nothing, upper=nothing, mute=false)
     d, n = size(X)
     lower, upper = init_bound(X, d, k, lower, upper)
     dmat_max = max_dist(X, d, k, n, lower, upper)
+    
+    #w_bin = rlt.centers # weight of the binary variables
 
     m = Model(CPLEX.Optimizer);
+
     if mute
         set_optimizer_attribute(m, "CPX_PARAM_SCRIND", 0)
     end
+
+    set_optimizer_attribute(m, "CPX_PARAM_THREADS",1)
     set_optimizer_attribute(m, "CPX_PARAM_TILIM", time_lapse) # maximum runtime limit is 1 hours
-    set_optimizer_attribute(m, "CPX_PARAM_THREADS", 1) # set maximum thread to 1, let the cplex to run in sequential
     # here the gap should always < mingap of BB, e.g. if mingap = 0.1%, then gap here should be < 0.1%, the default is 0.01%
-    # set_optimizer_attribute(m, "CPX_PARAM_EPGAP", 0.1) 
+    # set_optimizer_attribute(m, "CPX_PARAM_EPGAP", 0.05) 
     @variable(m, lower[t,i] <= centers[t in 1:d, i in 1:k] <= upper[t,i], start=rand());
     @constraint(m, [j in 1:k-1], centers[1,j]<= centers[1,j+1])
     @variable(m, 0<=dmat[i in 1:k, j in 1:n]<=dmat_max[i,j], start=rand());
     @constraint(m, [i in 1:k, j in 1:n], dmat[i,j] >= sum((X[t,j] - centers[t,i])^2 for t in 1:d ));
+    
     @variable(m, b[1:k, 1:n], Bin)
     @constraint(m, [j in 1:n], sum(b[i,j] for i in 1:k) == 1);
-    @variable(m, costs[1:n], start=rand());
+    if w_sos !== nothing
+        @constraint(m, [j in 1:n], b[:,j] in MOI.SOS1(w_sos[:,j]))
+    end
+
+    @variable(m, costs[1:n]>=0, start=rand());
     @constraint(m, [i in 1:k, j in 1:n], costs[j] - dmat[i,j] >= -dmat_max[i,j]*(1-b[i,j]))
     @constraint(m, [i in 1:k, j in 1:n], costs[j] - dmat[i,j] <= dmat_max[i,j]*(1-b[i,j]))
-
-    @objective(m, Min, sum(costs[j] for j in 1:n)+sum((lambda[:,i,2]-lambda[:,i,1])'*centers[:,i] for i in 1:k));
+    
+    @objective(m, Min, sum(costs[j] for j in 1:n)+
+                sum((lambda[:,i,2]-lambda[:,i,1])'*centers[:,i] for i in 1:k));
     optimize!(m);
+
+
     centers = value.(centers)
-    #objv, assign = obj_assign(centers, X) # here the objv should be a lower bound of CPLEX
-    # get the real objective of the lower bound problem and no need to get he value assign
-<<<<<<< Updated upstream
-    #objv = getobjectivevalue(m)
-=======
->>>>>>> Stashed changes
-    objv = objective_bound(m)
+    objv = objective_bound(m)  #getobjectivevalue(m)
     return centers, objv
 end
 

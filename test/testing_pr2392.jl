@@ -1,13 +1,26 @@
 using RDatasets, DataFrames, CSV
 using Random, Distributions
-using Plots#, StatsPlots
+#using Plots#, StatsPlots
 using MLDataUtils, Clustering
 using JLD
 
+using Distributed, SharedArrays
+
+if ARGS[1] == "HPC"
+    using ClusterManagers
+    addprocs_slurm(parse(Int, ENV["SLURM_NTASKS"])-nprocs(), 
+            nodes=parse(Int, ENV["SLURM_JOB_NUM_NODES"]))
+else # ARGS[1]==core number if ARGS[1]==1, then it is serial computing
+    addprocs(parse(Int, ARGS[1])-nprocs())
+end
+
+println("Running ",nprocs()," processes")
+
 # load functions for branch&bound and data preprocess from self-created module
-if !("src/" in LOAD_PATH)
+@everywhere if !("src/" in LOAD_PATH)
     push!(LOAD_PATH, "src/")
 end
+
 using data_process, bb_functions, opt_functions
 
 
@@ -20,32 +33,35 @@ using data_process, bb_functions, opt_functions
 if Sys.iswindows()
     data, label = data_preprocess("pr2392.tsp", nothing, joinpath(@__DIR__, "..\\data\\")) # read data in Windows
 else
-    data, label = data_preprocess("pr2392.tsp", nothing, joinpath(@__DIR__, "data/")) # read data in Mac
+    data, label = data_preprocess("pr2392.tsp", nothing, joinpath(@__DIR__, "../data/")) # read data in Mac
 end
 
+
 label = vec(label)
-k = 2
+k = parse(Int, ARGS[2]) #length(unique(label))
 Random.seed!(123)
 
-t_adp_LD = @elapsed centers_adp_LD, objv_adp_LD, calcInfo_adp_LD = bb_functions.branch_bound(data, k, "LD+adaGp")
-println("solution time: ",  t_adp_LD)
 
+
+t_adp_LD = @elapsed centers_adp_LD, objv_adp_LD, calcInfo_adp_LD = bb_functions.branch_bound(data, k, "LD+adaGp")
+println("Iris:\tsolution time: ",  t_adp_LD, "\tfinal gap: ", calcInfo_adp_LD[end][end])
 
 
 
 #=
+centers, objv, calcInfo = bb_par.branch_bound_par(data, k)
 
 # local optimization for kmeans clustering
 centers_l, assign_l, objv_l = local_OPT(data, k)
 
 # branch&bound global optimization for kmeans clustering
-t = @elapsed centers, objv, calcInfo = branch_bound(data, k)
-t_LD = @elapsed centers_LD, objv_LD, calcInfo_LD = bb_functions.branch_bound_LD(data, k)
-t_adp = @elapsed centers_adp, objv_adp, calcInfo_adp = bb_functions.branch_bound_adptGp(data, k) # 237s 11 iterations
-t_adp_LD = @elapsed centers_adp_LD, objv_adp_LD, calcInfo_adp_LD = bb_functions.branch_bound_adptGp_LD(data, k) #
+#t = @elapsed centers, objv, calcInfo = branch_bound(data, k)
+#t_LD = @elapsed centers_LD, objv_LD, calcInfo_LD = bb_functions.branch_bound_LD(data, k)
+#t_adp = @elapsed centers_adp, objv_adp, calcInfo_adp = bb_functions.branch_bound_adptGp(data, k) # 237s 11 iterations
+#t_adp_LD = @elapsed centers_adp_LD, objv_adp_LD, calcInfo_adp_LD = bb_functions.branch_bound_adptGp_LD(data, k) #
 
 # global optimization using CPLEX directly objv_lg is the lower bound of current solution
-t_g = @elapsed centers_g, objv_g, assign_g, gap_g = global_OPT_base(data, k)
+#t_g = @elapsed centers_g, objv_g, assign_g, gap_g = global_OPT_base(data, k)
 
 # kmeans results for comparison
 Random.seed!(0)
@@ -80,3 +96,5 @@ timeGapRlt = [[t_g t t_LD t_adp t_adp_LD]; [gap_g calcInfo[end][end] calcInfo_LD
 
 evalRlt = [eval_CPLEX[:,end] eval_orig[:,end] eval_LD[:,end] eval_adp[:,end] eval_adp_LD[:,end] [nmi_km_mean; vi_km; ari_km; objv_km_mean]]
 =#
+
+rmprocs(procs()[2:nprocs()])
