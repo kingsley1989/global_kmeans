@@ -11,9 +11,11 @@ struct Node
     LB::Float64
     groups
     lambda
+    group_centers
+    group_cuts
 end
 
-Node() = Node(nothing, nothing, -1, -1e15, nothing,nothing)
+Node() = Node(nothing, nothing, -1, -1e15, nothing, nothing, nothing, nothing)
 
 
 # function to print the node in a neat form

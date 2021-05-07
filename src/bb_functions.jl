@@ -4,8 +4,9 @@ module bb_functions
 using Clustering
 using Printf
 using JuMP
-using Ipopt, CPLEX#, SCIP
+using Ipopt, CPLEX, Gurobi#, SCIP
 using Random
+using Statistics
 
 using ub_functions, lb_functions, opt_functions, obbt, branch, probing, Nodes
 
@@ -25,8 +26,23 @@ time_finish(seconds) = round(Int, 10^9 * seconds + time_ns())
 # LB = node.LB is the best LB among all node and is in current iteration
 # UB is the best UB, and node_UB the updated UB(it is possible: node_UB > UB) of current iteration (after run getUpperBound)
 # node_LB is the updated LB of current itattion (after run probing or getLowerBound_adptGp_LD)
-function branch_bound(X, k, method = "SCEN", mode = "fixed")
-    d, n = size(X);	 
+function branch_bound(X, k, method = "SCEN", mode = "fixed", cons = "SOS1", cuts_info = "lar-5", solver = "CPLEX")
+    
+    #println(X[:,1:20])
+    #=	 
+    med_x = median(X)
+    if log(10, med_x) > 4
+        X = X/10^(floor(log(10, med_x))-3) 
+    end=#
+    if minimum(X) < 0
+        X = X.+ minimum(X)
+    end
+    if maximum(X) >= 20
+        X = X/(maximum(X)*0.05)
+    end
+    
+    d, n = size(X);
+    #println(d, n)
     lower, upper = opt_functions.init_bound(X, d, k)
 
     UB = 1e15;
@@ -34,8 +50,15 @@ function branch_bound(X, k, method = "SCEN", mode = "fixed")
     centers = nothing;
     assign = nothing;
     w_sos = nothing;
+    if length(cuts_info) == 5 && cuts_info[1:4] == "lar-"
+        cuts, n_cuts = split(cuts_info, "-")
+        n_cuts = parse(Int, n_cuts)
+    else
+        cuts = "nolar"
+        n_cuts = 1
+    end
     # groups is not initalized, will generate at the first iteration after the calculation of upper bound
-    root = Node(lower, upper, -1, -1e15, nothing, nothing); 
+    root = Node(lower, upper, -1, -1e15, nothing, nothing, nothing, nothing); 
     nodeList =[]
     push!(nodeList, root)
     iter = 0
@@ -74,21 +97,47 @@ function branch_bound(X, k, method = "SCEN", mode = "fixed")
             node_centers, node_assign, node_UB = ub_functions.getUpperBound(X, k, nothing, nothing, tol)
             centers = node_centers
             assign = node_assign
-            max_d = opt_functions.max_dist(X, d, k, n, lower, upper) # k*n
-            w_sos = reduce(hcat, [max_d[:,j] .- [sum((X[t,j] - centers[t,i])^2 for t in 1:d) for i in 1:k] for j in 1:n]) # k*n
+            if cons == "SOS1"
+                max_d = opt_functions.max_dist(X, d, k, n, lower, upper) # k*n
+                w_sos = reduce(hcat, [max_d[:,j] .- [sum((X[t,j] - centers[t,i])^2 for t in 1:d) for i in 1:k] for j in 1:n]) # k*n
+            else
+                w_sos = nothing
+            end
             # in root node, we can first genarate a grouping scheme based on best kmeans result
             # generated the initial groups for subgrouping optimization
             # in version of no-adaGP-bb function, groups information is not needed
-            ngroups = round(Int, n/k/10); # determine the number of groups, 10*k points in each group
+            # determine the number of groups, 162/d-k points in each group, guarantee that 162 variables in a subproblem
+            # however, the number of points in a group can not be too large,
+            # otherwise consume too much memory (out of memory) and calculation is too slow
+            if 162/d-k > 31 # set 31 so that d > 5 will not be affected
+                if n > 200
+                    ngroups = round(Int, n/25)
+                else
+                    ngroups = round(Int, n/31)
+                end
+            else
+                ngroups = round(Int, n/(162/d-k)) # round(Int, n/15); #
+            end
+            println(ngroups)
             groups = lb_functions.kmeans_group(X, assign, ngroups)
             # assign maybe can tansitive so that donot need to call obj_assign every time.
             #println(groups)
-            
+
             # insert OBBT function here to tightening the range of each variable
-            lwr = OBBT_min(X, k, node_UB, w_sos, nothing, nothing, true, 2)
-            upr = OBBT_max(X, k, node_UB, w_sos, nothing, nothing, true, 2)
-            node = Node(lwr, upr, node.level, node.LB, groups, node.lambda);
-	    
+            lwr = OBBT_min(X, k, node_UB, w_sos, nothing, nothing, true, 2, solver) # lower # 
+            upr = OBBT_max(X, k, node_UB, w_sos, nothing, nothing, true, 2, solver) # upper # 
+            # update node with lower, upper, groups
+            node = Node(lwr, upr, node.level, node.LB, groups, node.lambda, nothing, nothing);
+            
+            if cuts == "lar"
+                # run first lower bound to get the initial group LB
+                node_LB, groups, lambda, group_centers, group_cuts= lb_functions.getLowerBound_adptGp_LD(X, k, w_sos, assign, node, UB, mode, solver, n_cuts)
+                # here array of -Inf may produce error for opt solver, 0 is ok in the case of clustering
+                #group_LB = repeat([-1e15], 1, ngroups)
+                println(group_cuts)
+                # update node with info from getLB function. groups is not changed here for fixed mode
+                node = Node(lwr, upr, node.level, node_LB, groups, node.lambda, group_centers, group_cuts);
+            end
         else
             if (mode == "fixed") # if fixed, UB is the result of kmeans
 	            node_UB = UB	      
@@ -117,7 +166,7 @@ function branch_bound(X, k, method = "SCEN", mode = "fixed")
 
 
     	lwr, upr, node_LB = probing_base(X, k, centers, node.lower, node.upper, UB, mingap);
-        node = Node(lwr, upr, node.level, node.LB, node.groups, node.lambda);
+        node = Node(lwr, upr, node.level, node.LB, node.groups, node.lambda, node.group_centers, node.group_cuts);
         println("node.lower after prob:  ", node.lower)
         println("node.upper after prob:  ", node.upper)
 
@@ -138,10 +187,17 @@ function branch_bound(X, k, method = "SCEN", mode = "fixed")
                 # This node is gonna split and its grouping should be saved as the parent groups for its children
                 # Therefore, every iteration, node will first have the grouping scheme of its parent node
                 # after lower bound calculation, groups will be updated to its current grouping scheme that get the current LB
-                node = Node(node.lower, node.upper, node.level, node.LB, groups, nothing)
+                node = Node(node.lower, node.upper, node.level, node.LB, groups, nothing, nothing)
             elseif (method == "LD+adaGp")
-                node_LB, groups, lambda, group_centers= lb_functions.getLowerBound_adptGp_LD(X, k, w_sos, assign, node, UB, mode)
-                node = Node(node.lower, node.upper, node.level, node.LB, groups, lambda)
+                node_LB, groups, lambda, group_centers, group_cuts= lb_functions.getLowerBound_adptGp_LD(X, k, w_sos, assign, node, UB, mode, solver, n_cuts)
+                if cuts == "lar"
+                    #println(group_cuts)
+                    #println(node.group_cuts)
+                    #group_cuts[1] = max.(group_cuts[1], node.group_cuts[1]) # get the best lb cut for each subproblem
+                    node = Node(node.lower, node.upper, node.level, node.LB, groups, lambda, group_centers, group_cuts)
+                else
+                    node = Node(node.lower, node.upper, node.level, node.LB, groups, lambda, group_centers, nothing)
+                end
             elseif (method == "SCEN")
                 node_LB = lb_functions.getLowerBound_analytic(X, k, node.lower, node.upper) # getLowerBound with closed-form expression
                 # node_LB = lb_functions.getLowerBound_linear(X, k, node.lower, node.upper, 5) # getLowerBound with linearized constraints 
@@ -150,7 +206,7 @@ function branch_bound(X, k, method = "SCEN", mode = "fixed")
             end
         end
 
-        #if node_LB<LB # this if statement just put all nodes have the lb greater than their parent node
+        #if node_LB<LB # LB is node.LB this if statement just put all nodes have the lb greater than their parent node
         #    node_LB = LB
         #end 
         # println("nodeLB nodeUB   ",node_LB, "     ", node_UB) 

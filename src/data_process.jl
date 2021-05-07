@@ -34,8 +34,8 @@ function data_preprocess(dataname, datapackage = "datasets", path=nothing, missi
     end
     # return data(deleting the first index column) in transpose for optimization process (only for some dataset)
     # return convert(Matrix, data[:,2:(ncol(data)-1)])', v # seeds
-    return convert(Matrix, data[:,1:(ncol(data)-1)])', v  # iris
-end
+    return Matrix(data[:,1:(ncol(data)-1)])', v  # iris convert(Matrix, iris) will have error in niagara
+end 
 
 function sig_gen(eigvals)
     n = length(eigvals)

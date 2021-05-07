@@ -3,13 +3,14 @@ module opt_functions
 using Clustering
 using Printf
 using JuMP
-using Ipopt, CPLEX#, SCIP
+using Ipopt, CPLEX, Gurobi#, SCIP
 using Random
+using grb_env
 
 export obj_assign, local_OPT, global_OPT3, global_OPT_base, global_OPT_linear, global_OPT3_LD, global_OPT_oa, global_OPT_oa_base
 
-
 time_lapse = 900 # 15 mins
+obbt_time = 180 # 1 mins
 
 ############# auxilary functions #############
 function obj_assign(centers, X)
@@ -103,6 +104,7 @@ function global_OPT_base(X, k, lower=nothing, upper=nothing, mute=false)
     set_optimizer_attribute(m, "CPX_PARAM_THREADS",1)
     set_optimizer_attribute(m, "CPX_PARAM_TILIM", time_lapse*16) # maximum runtime limit is time_lapse*16 or set to 4/12 hours
     set_optimizer_attribute(m, "CPX_PARAM_MIQCPSTRAT", 1) # 0 for qcp relax and 1 for lp oa relax.
+    # set_optimizer_attribute(m, "MIQCPMethod", 1) # 0 for qcp relax and 1 for lp oa relax, -1 for auto This is for Gurobi
     @variable(m, lower[t,i] <= centers[t in 1:d, i in 1:k] <= upper[t,i], start=rand());
     @constraint(m, [j in 1:k-1], centers[1,j]<= centers[1,j+1])
     @variable(m, 0<=dmat[i in 1:k, j in 1:n]<=dmat_max[i,j], start=rand());
@@ -188,52 +190,83 @@ end
 
 
 # oa problem initialization functions
-function oa_init_OPT(X, d, k, n, km_centers, lower=nothing, upper=nothing, mute=false)
-    lower, upper = opt_functions.init_bound(X, d, k, lower, upper)
-    dmat_max = opt_functions.max_dist(X, d, k, n, lower, upper)
-
+function oa_init_OPT(X, k, d, n, w_sos, dmat_max, lower, upper, mute=false, solver="CPLEX", time = 180)
     println("Initialize linear relaxed problem.")
-    m = Model(CPLEX.Optimizer);
-    if mute
-        set_optimizer_attribute(m, "CPX_PARAM_SCRIND", 0)
+    if solver == "CPLEX"
+        m = Model(CPLEX.Optimizer);
+        if mute
+            set_optimizer_attribute(m, "CPX_PARAM_SCRIND", 0)
+        end
+        set_optimizer_attribute(m, "CPX_PARAM_THREADS",1)
+        set_optimizer_attribute(m, "CPX_PARAM_TILIM", time) # maximum runtime limit is 10 mins
+        set_optimizer_attribute(m, "CPX_PARAM_MIQCPSTRAT", 1) # 0 for qcp relax and 1 for lp oa relax.
+    else # Gurobi
+        m = Model(() -> Gurobi.Optimizer(GUROBI_ENV[]))
+        if mute
+            set_optimizer_attribute(m, "OutputFlag", 0)
+        end
+        set_optimizer_attribute(m, "Threads",1)
+        set_optimizer_attribute(m, "TimeLimit", time_lapse) # maximum runtime limit is 1 hours
+        set_optimizer_attribute(m, "MIQCPMethod", 1) # 0 for qcp relax and 1 for lp oa relax, -1 for auto This is for Gurobi
+        set_optimizer_attribute(m, "NoRelHeurWork", Inf) # set NoRel for fast searching of good solution
     end
-    set_optimizer_attribute(m, "CPX_PARAM_THREADS",1)
-    set_optimizer_attribute(m, "CPX_PARAM_TILIM", 150) # maximum runtime limit is 4 hours
+
     @variable(m, lower[t,i] <= centers[t in 1:d, i in 1:k] <= upper[t,i], start=rand());
     @constraint(m, [j in 1:k-1], centers[1,j]<= centers[1,j+1])
     @variable(m, 0<=dmat[i in 1:k, j in 1:n]<=dmat_max[i,j], start=rand());
     @variable(m, 0 <= w[t in 1:d, i in 1:k], start=rand()) # add the horizontal line of the lower bottom line bound 
     @constraint(m, [i in 1:k, j in 1:n], dmat[i,j] >= sum((X[t,j]^2 - 2*X[t,j]*centers[t,i] + w[t,i]) for t in 1:d ));
+    
     # initial linear relaxiation constraints
     @constraint(m, [t in 1:d, i in 1:k], 2*lower[t,i]*centers[t,i]-lower[t,i]^2 <= w[t,i])
     @constraint(m, [t in 1:d, i in 1:k], 2*upper[t,i]*centers[t,i]-upper[t,i]^2 <= w[t,i])
     # binary constraints
-    @variable(m, lambda[1:k, 1:n], Bin)
-    @constraint(m, [j in 1:n], sum(lambda[i,j] for i in 1:k) == 1);
-    @constraint(m, [j in 1:n], b[:,j] in MOI.SOS1([sum((X[t,j] - km_centers[t,i])^2 for t in 1:d) for i in 1:k]))
+    @variable(m, b[1:k, 1:n], Bin)
+    @constraint(m, [j in 1:n], sum(b[i,j] for i in 1:k) == 1);
+    if w_sos !== nothing
+        @constraint(m, [j in 1:n], b[:,j] in MOI.SOS1(w_sos[:,j]))
+    end
 
     @variable(m, costs[1:n]>=0, start=rand());
-    @constraint(m, [i in 1:k, j in 1:n], costs[j] - dmat[i,j] >= -dmat_max[i,j]*(1-lambda[i,j]))
-    @constraint(m, [i in 1:k, j in 1:n], costs[j] - dmat[i,j] <= dmat_max[i,j]*(1-lambda[i,j]))
-
-    @objective(m, Min, sum(costs[j] for j in 1:n));
+    @constraint(m, [i in 1:k, j in 1:n], costs[j] - dmat[i,j] >= -dmat_max[i,j]*(1-b[i,j]))
+    @constraint(m, [i in 1:k, j in 1:n], costs[j] - dmat[i,j] <= dmat_max[i,j]*(1-b[i,j]))
     
     return m #centers_fix, LB, assign, (UB-LB)/min(abs(LB), abs(UB))
 end
 
 # global oa functions that adpatively adding linear constraints
 # w and centers from previous solver is quaried for checking violations
-function global_OPT_oa(X, k, UB, lower=nothing, upper=nothing, mute=false, max_iter = 5)
+function global_OPT_oa(X, k, UB, w_sos=nothing, lower=nothing, upper=nothing, mute=false, max_iter = 5, time=180, solver="CPLEX", obbt = nothing, dim=0, clst=0)
     eps_v = 1e-5 # violations tolarance between w and quadratic term
     d, n = size(X)
-    
-    m = oa_init_OPT(X, d, k, n, lower, upper, mute)
+    lower, upper = opt_functions.init_bound(X, d, k, lower, upper)
+    dmat_max = opt_functions.max_dist(X, d, k, n, lower, upper)
+
+    m = oa_init_OPT(X, k, d, n, w_sos, dmat_max, lower, upper, mute, solver, time)
+    if obbt == "min"
+        @objective(m, Min, m[:centers][dim, clst]);
+        fea_sol = UB
+        UB = upper[dim, clst]
+        @constraint(m, sum(m[:costs][j] for j in 1:n)<= fea_sol) # add the constraint that the total cost should lower than current UB
+    elseif obbt == "max"
+        @objective(m, Max, m[:centers][dim, clst]);
+        fea_sol = UB
+        UB = lower[dim, clst]
+        @constraint(m, sum(m[:costs][j] for j in 1:n)<= fea_sol)
+    else # obbt == nothing, this is the oa for main problem
+        @objective(m, Min, sum(m[:costs][j] for j in 1:n));
+    end
+
     w_fix = nothing
     centers_fix = nothing
-    LB = 0
+    if obbt == "max"
+        LB = -Inf
+    else
+        LB = Inf
+    end
     iter = 1
     # start adding constraints
-    while ((UB-LB)/min(abs(LB), abs(UB))>= 0.01) & (iter <= max_iter)
+    while (abs(UB-LB)/min(abs(LB), abs(UB))>= 0.01) & (iter <= max_iter)
         println("Solving linear relaxed problem $iter")
         # adding constraints, if w violates the quadratic term, add the linear constraint
         if w_fix !== nothing
@@ -252,7 +285,11 @@ function global_OPT_oa(X, k, UB, lower=nothing, upper=nothing, mute=false, max_i
         if has_values(m) #result_count(m) >= 1
             centers_fix = value.(m[:centers])
             w_fix = value.(m[:w])
-            tLB = objective_bound(m) # always use the lower bound of the relaxed problem
+            if obbt === nothing
+                tLB = objective_bound(m) # always use the lower bound of the relaxed problem
+            else
+                tLB = objective_value(m)
+            end
             if relative_gap(m) <= 0.01
                 println("Lower bound after being converged: $tLB")
             else # else 
@@ -260,11 +297,16 @@ function global_OPT_oa(X, k, UB, lower=nothing, upper=nothing, mute=false, max_i
             end
         else # in bb process, there may be infeasible in some node, and thus no LB and center exist.
             println("No feasible solution found at iter $iter")
-            LB = Inf
-            break
+            
         end
-        if LB < tLB # update LB so that LB is always the highest LB
-            LB = tLB
+        if obbt == "max"
+            if LB > tLB
+                LB = tLB
+            end
+        else
+            if LB < tLB # update LB so that LB is always the highest LB
+                LB = tLB
+            end
         end
         iter += 1
     end
@@ -272,9 +314,75 @@ function global_OPT_oa(X, k, UB, lower=nothing, upper=nothing, mute=false, max_i
 end
 
 function global_OPT_oa_base(X, k, UB, lower=nothing, upper=nothing, mute=false, max_iter = 5)
-    centers, LB, gap = global_OPT_oa(X, k, UB, lower, upper, mute, max_iter)
+    centers, LB, gap = global_OPT_oa(X, k, UB, nothing, lower, upper, mute, max_iter, 14400)
     objv, assign = obj_assign(centers, X)
     return centers, objv, assign, gap
+end
+
+
+function obbt_OPT(X, k, d, n, UB, w_sos, dmat_max, lower=nothing, upper=nothing, mute=false, nlines=1, solver="CPLEX", obbt="min", dim=0, clst=0)
+    if solver == "CPLEX"
+        m = Model(CPLEX.Optimizer);
+        if mute
+            set_optimizer_attribute(m, "CPX_PARAM_SCRIND", 0)
+        end
+        set_optimizer_attribute(m, "CPX_PARAM_THREADS",1)
+        set_optimizer_attribute(m, "CPX_PARAM_TILIM", obbt_time) # maximum runtime limit is 10 mins
+        set_optimizer_attribute(m, "CPX_PARAM_MIQCPSTRAT", 1) # 0 for qcp relax and 1 for lp oa relax.
+    else # Gurobi
+        m = Model(() -> Gurobi.Optimizer(GUROBI_ENV[]))
+        if mute
+            set_optimizer_attribute(m, "OutputFlag", 0)
+        end
+        set_optimizer_attribute(m, "Threads",1)
+        set_optimizer_attribute(m, "TimeLimit", obbt_time) # maximum runtime limit is 1 hours
+        set_optimizer_attribute(m, "MIQCPMethod", -1) # 0 for qcp relax and 1 for lp oa relax, -1 for auto This is for Gurobi
+        #set_optimizer_attribute(m, "NoRelHeurWork", Inf) # set NoRel for fast searching of good solution
+    end
+    @variable(m, lower[t,i] <= centers[t in 1:d, i in 1:k] <= upper[t,i], start=rand());
+    @constraint(m, [j in 1:k-1], centers[1,j]<= centers[1,j+1])
+
+    @variable(m, 0<=dmat[i in 1:k, j in 1:n]<=dmat_max[i,j], start=rand());
+    #@variable(m, lower[t,i]^2 <= w[t in 1:d, i in 1:k] <= upper[t,i]^2) # add the horizontal line of the lower bottom line bound 
+    @variable(m, 0 <= w[t in 1:d, i in 1:k], start=rand()) # add the horizontal line of the lower bottom line bound 
+    @constraint(m, [i in 1:k, j in 1:n], dmat[i,j] >= sum((X[t,j]^2 - 2*X[t,j]*centers[t,i] + w[t,i]) for t in 1:d ));
+    itval = (upper-lower)./2/nlines # total 2*nlines, separate the range into 2*nlines sections
+    for line in 0:(nlines-1)
+        lwr = lower+itval.*line
+        upr = upper-itval.*line
+        @constraint(m, [t in 1:d, i in 1:k], 2*lwr[t,i]*centers[t,i]-lwr[t,i]^2 <= w[t,i])
+        @constraint(m, [t in 1:d, i in 1:k], 2*upr[t,i]*centers[t,i]-upr[t,i]^2 <= w[t,i])
+    end
+    # add constraint for upper bound of w, may not necessary
+    # @constraint(m, [t in 1:d, i in 1:k], w[t,i] <= (upper[t,i]+lower[t,i])*centers[t,i]-upper[t,i]*lower[t,i])
+
+    @variable(m, b[1:k, 1:n], Bin)
+    @constraint(m, [j in 1:n], sum(b[i,j] for i in 1:k) == 1);
+    @constraint(m, [j in 1:n], b[:,j] in MOI.SOS1(w_sos[:,j]))
+
+    @variable(m, costs[1:n]>=0, start=rand());
+    @constraint(m, [i in 1:k, j in 1:n], costs[j] - dmat[i,j] >= -dmat_max[i,j]*(1-b[i,j]))
+    @constraint(m, [i in 1:k, j in 1:n], costs[j] - dmat[i,j] <= dmat_max[i,j]*(1-b[i,j]))
+    @constraint(m, sum(costs[j] for j in 1:n)<= UB) # add the constraint that the total cost should lower than current UB
+
+    if obbt == "min"
+        @objective(m, Min, centers[dim, clst]);
+        optimize!(m);
+        if result_count(m) <= 0
+            objv = lower[dim, clst]
+        else
+            objv = objective_bound(m) # objective_value(m) # using objective_bound so that the value is the smallest value
+        end
+    else # obbt == "max"
+        @objective(m, Max, centers[dim, clst]);
+        optimize!(m);
+        if result_count(m) <= 0
+            objv = upper[dim, clst]
+        else
+            objv = objective_bound(m) # objective_value(m) # using objective_bound so that the value is the smallest value
+        end
+    end
+    return objv
 end
 
 
@@ -290,8 +398,8 @@ function global_OPT3(X, k, lower=nothing, upper=nothing, mute=false)
     end
     set_optimizer_attribute(m, "CPX_PARAM_THREADS",1)
     set_optimizer_attribute(m, "CPX_PARAM_TILIM", time_lapse) # maximum runtime limit is 1 hours
-    # here the gap should always < mingap of BB, e.g. if mingap = 0.1%, then gap here should be < 0.1%, the default is 0.01%
-    set_optimizer_attribute(m, "CPX_PARAM_EPGAP", 0.05) 
+    # here the gap should always < mingap of BB, e.g. if mingap = 0.1%, then gap here should be < 0.1%, the default is 0.01%
+    set_optimizer_attribute(m, "CPX_PARAM_EPGAP", 0.05)
     @variable(m, lower[t,i] <= centers[t in 1:d, i in 1:k] <= upper[t,i], start=rand());
     @constraint(m, [j in 1:k-1], centers[1,j]<= centers[1,j+1])
     @variable(m, 0<=dmat[i in 1:k, j in 1:n]<=dmat_max[i,j], start=rand());
@@ -314,28 +422,39 @@ end
 
 # reduced bb subproblem solvers with largranian decomposition
 # here the labmda is the largrange multiplier
-function global_OPT3_LD(X, k, lambda, w_sos=nothing, lower=nothing, upper=nothing, mute=false)
+function global_OPT3_LD(X, k, lambda, ctr_init, lg_cuts=nothing, w_sos=nothing, lower=nothing, upper=nothing, mute=false, solver="CPLEX")
     d, n = size(X)
     lower, upper = init_bound(X, d, k, lower, upper)
     dmat_max = max_dist(X, d, k, n, lower, upper)
     
     #w_bin = rlt.centers # weight of the binary variables
-
-    m = Model(CPLEX.Optimizer);
-
-    if mute
-        set_optimizer_attribute(m, "CPX_PARAM_SCRIND", 0)
+    if solver=="CPLEX"
+        m = Model(CPLEX.Optimizer);
+        if mute
+            set_optimizer_attribute(m, "CPX_PARAM_SCRIND", 0)
+        end
+        set_optimizer_attribute(m, "CPX_PARAM_THREADS",1)
+        set_optimizer_attribute(m, "CPX_PARAM_TILIM", time_lapse) # maximum runtime limit is 1 hours
+        # here the gap should always < mingap of BB, e.g. if mingap = 0.1%, then gap here should be < 0.1%, the default is 0.01%
+        # set_optimizer_attribute(m, "CPX_PARAM_EPGAP", 0.05) 
+    else # solver is Gurobi
+        m = Model(() -> Gurobi.Optimizer(GUROBI_ENV[]))
+        if mute
+            set_optimizer_attribute(m, "OutputFlag", 0)
+        end
+        set_optimizer_attribute(m, "Threads",1)
+        set_optimizer_attribute(m, "TimeLimit", time_lapse) # maximum runtime limit is 1 hours
+        # set_optimizer_attribute(m, "PreMIQCPForm", 0) # improve the speed of bb process
+        # here the gap should always < mingap of BB, e.g. if mingap = 0.1%, then gap here should be < 0.1%, the default is 0.01%
+        # set_optimizer_attribute(m, "MIPGap", 0.05) 
     end
-
-    set_optimizer_attribute(m, "CPX_PARAM_THREADS",1)
-    set_optimizer_attribute(m, "CPX_PARAM_TILIM", time_lapse) # maximum runtime limit is 1 hours
-    # here the gap should always < mingap of BB, e.g. if mingap = 0.1%, then gap here should be < 0.1%, the default is 0.01%
-    # set_optimizer_attribute(m, "CPX_PARAM_EPGAP", 0.05) 
-    @variable(m, lower[t,i] <= centers[t in 1:d, i in 1:k] <= upper[t,i], start=rand());
+    @variable(m, lower[t,i] <= centers[t in 1:d, i in 1:k] <= upper[t,i], start=ctr_init[t,i]);
     @constraint(m, [j in 1:k-1], centers[1,j]<= centers[1,j+1])
     @variable(m, 0<=dmat[i in 1:k, j in 1:n]<=dmat_max[i,j], start=rand());
     @constraint(m, [i in 1:k, j in 1:n], dmat[i,j] >= sum((X[t,j] - centers[t,i])^2 for t in 1:d ));
-    
+
+    #@constraint(m, [i in 1:k, j in 1:n], [dmat[i,j] X[:,j]-centers[:,i]] in SecondOrderCone())
+    #@constraint(m, [i in 1:k, j in 1:n], [dmat[i,j]; X[:,j]-centers[:,i]] in SecondOrderCone())
     @variable(m, b[1:k, 1:n], Bin)
     @constraint(m, [j in 1:n], sum(b[i,j] for i in 1:k) == 1);
     if w_sos !== nothing
@@ -346,6 +465,15 @@ function global_OPT3_LD(X, k, lambda, w_sos=nothing, lower=nothing, upper=nothin
     @constraint(m, [i in 1:k, j in 1:n], costs[j] - dmat[i,j] >= -dmat_max[i,j]*(1-b[i,j]))
     @constraint(m, [i in 1:k, j in 1:n], costs[j] - dmat[i,j] <= dmat_max[i,j]*(1-b[i,j]))
     
+
+    if lg_cuts !== nothing
+        #print(lg_cuts)
+        for l in 1:length(lg_cuts[1])
+            @constraint(m, lg_cuts[1][l] <= sum(costs[j] for j in 1:n)+
+                    sum((lg_cuts[3][l][:,i]-lg_cuts[2][l][:,i])'*centers[:,i] for i in 1:k))
+        end
+    end
+
     @objective(m, Min, sum(costs[j] for j in 1:n)+
                 sum((lambda[:,i,2]-lambda[:,i,1])'*centers[:,i] for i in 1:k));
     optimize!(m);

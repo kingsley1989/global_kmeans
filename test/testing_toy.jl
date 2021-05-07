@@ -32,14 +32,15 @@ using data_process, bb_functions, opt_functions
 Random.seed!(1) #120
 clst_n = parse(Int, ARGS[3])  # number of points in a cluster 
 k = parse(Int, ARGS[2]) 
-data = Array{Float64}(undef, 2, clst_n*k) # initial data array (clst_n*k)*2 
+d = 3 # dimension
+data = Array{Float64}(undef, d, clst_n*k) # initial data array (clst_n*k)*2 
 label = Array{Float64}(undef, clst_n*k) # label is empty vector 1*(clst_n*k)
-mu = reshape(sample(1:30, k*2), k, 2) # [60 8; 2 1; 200 200] # [20 20; 2 1; 7 3] # sig: 1-5 # 
+mu = reshape(sample(1:30, k*d), k, d) # [60 8; 2 1; 200 200] # [20 20; 2 1; 7 3] # sig: 1-5 # 
 # sig = [[0.7 0; 0 0.7],[1.5 0;0 1.5],[0.2 0;0 0.6]]
 # we can not do with a = [a, i] refer to Scope of Variables in julia documentation
 for i = 1:k 
-    sig = round.(sig_gen(sample(1:10, 2)))
-    print(sig)
+    sig = round.(sig_gen(sample(1:10, d)))
+    println(sig)
     clst = rand(MvNormal(mu[i,:], sig), clst_n) # data is 2*clst_n
     data[:,((i-1)*clst_n+1):(i*clst_n)] = clst
     label[((i-1)*clst_n+1):(i*clst_n)] = repeat([i], clst_n)
@@ -58,10 +59,9 @@ label = convertlabel(1:k, vec(label))
 
 # branch&bound global optimization for kmeans clustering
 #t = @elapsed centers, objv, calcInfo = branch_bound(data, k, "SCEN")
-t_adp_LD = @elapsed centers_adp_LD, objv_adp_LD, calcInfo_adp_LD = bb_functions.branch_bound(data, k, "LD+adaGp") #
-println("Iris:\tsolution time: ",  t_adp_LD, "\tfinal gap: ", calcInfo_adp_LD[end][end])
-
-
+t_adp_LD = @elapsed centers_adp_LD, objv_adp_LD, calcInfo_adp_LD = bb_functions.branch_bound(data, k, "LD+adaGp", "fixed", "SOS1", ARGS[4], ARGS[5]) #
+println("Toy-$k-$clst_n:\t",  round(t_adp_LD, digits=2), "\t", round(calcInfo_adp_LD[end][end]*100, digits=4), "%\t", 
+    calcInfo_adp_LD[end][end] <= 0.001 ? length(calcInfo_adp_LD)-1 : length(calcInfo_adp_LD))
 
 
 

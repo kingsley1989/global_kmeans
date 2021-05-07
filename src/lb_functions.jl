@@ -3,7 +3,7 @@ module lb_functions
 using Random, Distributions
 using LinearAlgebra
 using MLDataUtils, Clustering #, MLBase
-using opt_functions
+#using opt_functions
 
 using Distributed, SharedArrays
 @everywhere using opt_functions
@@ -16,7 +16,7 @@ mingap = 1e-3
 
 
 
-# function to calcuate the median value of a vector
+# function to calcuate the median value of a vector with 3 elements
 function med(a,b,c)
     return a+b+c-max(a,b,c)-min(a,b,c)
 end
@@ -67,7 +67,7 @@ end
 
 ############## Lower bound calculation with outer approximation ##############
 function getLowerBound_oa(X, k, UB, lower=nothing, upper=nothing, max_iter = 5)
-    centers, LB, ~ = global_OPT_oa(X, k, UB, lower, upper, true, max_iter)
+    centers, LB, ~ = global_OPT_oa(X, k, UB, nothing, lower, upper, true, max_iter, 14400)
     return LB
 end
 
@@ -75,7 +75,7 @@ end
 
 ############## auxilary functions for largrangean decomposition ##############
 
-function updateLambda_subgrad_2(lambda_vec, qUB, LB, centers_gp, alpha = 1)
+function updateLambda_subgrad_2(lambda_vec, sk_old_vec, qUB, LB, centers_gp, alpha = 1)
     d, k, ngroups = size(centers_gp)
     sk = zeros(d, k, ngroups-1) # step size will be d*k*(ngroups-1)
     for i in 1:(ngroups-1)
@@ -86,57 +86,103 @@ function updateLambda_subgrad_2(lambda_vec, qUB, LB, centers_gp, alpha = 1)
     sk_vec = vec(sk)
     step = alpha*(qUB-LB)/(norm(sk_vec)^2)*sk_vec # norm may change to sum of squared sk
     lambda_vec = lambda_vec + step
-    return reshape(lambda_vec, d, k, ngroups-1) # change back with d*k*(g-1)
+    hk = sk_vec'*sk_old_vec # covergence rate factor
+    return reshape(lambda_vec, d, k, ngroups-1), sk_vec, hk # change back with d*k*(g-1)
 end
 
-function LD_2(X, d, k, ngroups, groups, qUB, w_sos=nothing, lambda=nothing, lower=nothing, upper=nothing)
+# cuts is a 2-element array, 1st is the group LB and 2nd is the corresponding lambda for each cut
+function LD_2(X, d, k, ngroups, groups, qUB, cuts_init=nothing, max_cuts = 5, w_sos=nothing, lambda=nothing, centers_init = nothing, lower=nothing, upper=nothing, solver="CPLEX")
     ncores = nprocs() 	 
     if lambda === nothing # use parent lambda as the initial guess, if not 
         lambda = zeros(d, k, ngroups+1) # d*k*(g+1) initialize lambda with 0
     end
-    # inital calculation for LB with zero lambda
-    LB = 0
     # start LB caculation with lambda updating process
     maxLB = -Inf
     #i = 0
     alpha = 1
     trial = 0
     trial_no_improve = 0
-    maxtrial = 20 # maximum 20 iterations to update lambda
-    maxtrial_no_improve = 2 # once we hit a non-improve on lambda, if this no-improve continue for 2 iteration, than stop
-    group_centers = nothing # here is the group_centers can be used as the initial guess of the solution
+    maxtrial = 15 # maximum 20 iterations to update lambda
+    maxtrial_no_improve = 3 # once we hit a non-improve on lambda, if this no-improve continue for 3 iteration, than stop
+    group_centers = nothing # here is the group_centers can be used as the initial guess of the solution and for branching
+    #group_cuts = nothing
+    if cuts_init === nothing
+        #group_cuts = []
+        cuts = []#nothing
+    else
+        #group_cuts = copy(cuts_init)
+        cuts = copy(cuts_init) # used for adding Largrangian cuts for each subproblem
+    end
+
+    # initialize the step vector, step size will be d*k*(ngroups-1)
+    sk_old_vec = vec(ones(d, k, ngroups-1)) 
+    # initalize LB_old for checking LB increase or decrease
+    LB_old = -Inf
+    println(norm(lambda, 2))
     # here we can change alpha< 1e-6 to (LB - previous LB) <= mingap*0.1, have to smaller than mingap ? 
-    while  (alpha >= 1.0e-6) && (trial <= maxtrial) && (trial_no_improve <= maxtrial_no_improve) # norm(lambda, Inf) > 0.1 # (qUB-maxLB)/min(abs(qUB)) >= 0.01 #    
+    while norm(sk_old_vec, 2) > 0.1 && (trial <= maxtrial) && (trial_no_improve <= maxtrial_no_improve) && (alpha >= 1.0e-6) #  # (qUB-maxLB)/min(abs(qUB)) >= 0.01 #    
         #println("============lambda============")
         #println(lambda)
         # here lambda input is a vectors but output is the matrix    
         LB = 0
-        centers_gp = zeros(d, k, ngroups) # initial var to save centers for each group
-        
+        centers_gp = rand(d, k, ngroups) # zeros(d, k, ngroups) # initial var to save centers for each group
+        LB_gp = zeros(1, ngroups) # initial group lb value
         # lambda dimensions: d*k*(ngroups+1) [0-ngroups]
         # lambda[:,:,1] --> lambda_0, lambda[:,:,ng+1] --> lambda_ng, both are 0 here.
+        if centers_init === nothing
+            centers_init = copy(centers_gp) # rand(d, k, ngroups) #
+        end
         if ncores == 1
-            for i = 1:ngroups
-                # assign is not necessary
-                print("=")
-                centers, objv = opt_functions.global_OPT3_LD(X[:,groups[i]], k, 
-                                lambda[:,:,i:(i+1)], w_sos, lower, upper, true);
-                centers_gp[:,:,i] = centers; # i for groups and centers are corresponding to i+1 of lambda
-                LB += objv;
-                #println("group    ", i, "   objv:   ", objv, "     ",LB)
+            if cuts_init === nothing
+                for i = 1:ngroups
+                    # assign is not necessary
+                    print("=")  
+                    centers, objv = opt_functions.global_OPT3_LD(X[:,groups[i]], k, 
+                                lambda[:,:,i:(i+1)], centers_init[:,:,i], nothing, w_sos, lower, upper, true, solver);
+                    LB_gp[i] = objv # update cuts info: opt lb value
+                    centers_gp[:,:,i] = centers; # i for groups and centers are corresponding to i+1 of lambda
+                    LB += objv;
+                    #println("group    ", i, "   objv:   ", objv, "     ",LB)
+                end
+            else
+                for i = 1:ngroups
+                    # assign is not necessary
+                    print("=") 
+                    sp_cuts = [getindex.(getindex.(cuts, 1), i), # opt val for cuts
+                               getindex.(getindex.(cuts, 2), :,:,i), # corresponding lambda i
+                               getindex.(getindex.(cuts, 2), :,:,i+1)] # corresponding lambda i+1 
+                               # here getindex broadcast can not have i:(i+1)
+                    #println(sp_cuts)
+                    #sp_cuts = [cuts[1][i], cuts[2][:,:,i:(i+1)]] # add cuts info: opt value and corresponding previous lambda
+                    centers, objv = opt_functions.global_OPT3_LD(X[:,groups[i]], k, 
+                                    lambda[:,:,i:(i+1)], centers_init[:,:,i], sp_cuts, w_sos, lower, upper, true, solver);
+                    LB_gp[i] = objv # update cuts info: opt lb value
+                    centers_gp[:,:,i] = centers; # i for groups and centers are corresponding to i+1 of lambda
+                    LB += objv;
+                end
             end
         else
-            rlt_gp = pmap(i -> opt_functions.global_OPT3_LD(X[:,groups[i]], k, 
-                            lambda[:,:,i:(i+1)], w_sos, lower, upper, true), 1:ngroups)
-            # centers
+            if cuts_init === nothing # if adaptive, no cuts added
+                rlt_gp = pmap(i -> opt_functions.global_OPT3_LD(X[:,groups[i]], k, 
+                            lambda[:,:,i:(i+1)], centers_init[:,:,i], nothing, w_sos, lower, upper, true, solver), 1:ngroups)
+            else
+                # here getindex broadcast can not have i:(i+1)
+                rlt_gp = pmap(i -> opt_functions.global_OPT3_LD(X[:,groups[i]], k, 
+                            lambda[:,:,i:(i+1)], centers_init[:,:,i], 
+                            [getindex.(getindex.(cuts, 1), i), getindex.(getindex.(cuts, 2), :,:,i), getindex.(getindex.(cuts, 2), :,:,i+1)], 
+                            w_sos, lower, upper, true, solver), 1:ngroups)
+            end
+            # group centers and group lower bound
             for i in 1:length(rlt_gp)
                 centers_gp[:, :, i] = rlt_gp[i][1]
+                LB_gp[i] = rlt_gp[i][2] # update cuts info: opt value
             end
             # lower bound
             LB = @distributed (+) for rlt in rlt_gp
                 rlt[2]
             end
         end
+        #println(cuts)
         println("")
         # if we get a LB larger than current max LB, then 
         # 1. check if the gap between LB and maxLB is large, then it is an improve, so non-improve doesn't update
@@ -147,20 +193,42 @@ function LD_2(X, d, k, ngroups, groups, qUB, w_sos=nothing, lambda=nothing, lowe
             end 
             maxLB = LB
             group_centers = centers_gp 
+            #group_cuts = cuts
             if (qUB-LB)<= mingap || (qUB-LB) <= mingap*abs(qUB)
+                println(LB)
                 break
             end
         end
+        # update and combine cuts info: opt value and corresponding lambda 
+        push!(cuts, [LB_gp, copy(lambda)]) # put the new cut into the queue
+        #println("cuts")
+        #println(cuts)
+        #println("lb")
+        #println(getindex(cuts, 1))
+        #println("sep")
+        #println(getindex.(getindex.(cuts, 1), 1))
+        if length(cuts) > max_cuts # if the queue is full, if max_cuts == Inf, then we retain all cuts
+            popfirst!(cuts) # delete the oldest cut
+        end
         # update lambda before the new loop
         # here we only need to update lambda[:,:,2:ngroups] (actaully is 1:(ngroups-1))
-        lambda[:,:,2:ngroups] = updateLambda_subgrad_2(vec(lambda[:,:,2:ngroups]), qUB, LB, centers_gp, alpha)
-        alpha = 0.85*alpha 
+        lambda[:,:,2:ngroups], sk_vec, hk = updateLambda_subgrad_2(vec(lambda[:,:,2:ngroups]), sk_old_vec, qUB, LB, centers_gp, alpha)
+        if LB <= LB_old # red
+            alpha = 0.66*alpha # here if #red = 1, means once we hit a decrease, we reduce the alpha
+        else
+            if hk >= 0 # green
+                alpha = 1.1*alpha
+            end # hk <0 is yellow and no change on alpha
+        end
+        sk_old_vec = sk_vec # update sk_old as pervious sk
+        LB_old = LB
+
         println(LB)
         trial_no_improve += 1
         trial += 1
         #i += 1
     end
-    return max(0, maxLB), lambda, group_centers
+    return max(0, maxLB), lambda, group_centers, cuts
 end
 
 
@@ -256,42 +324,46 @@ end
 ############## Lower bound calculation with adaptive sub-grouping and largrangean decomposition ##############
 # centers here only used to generate the weight of the SOS1
 #function getLowerBound_adptGp_LD(X, k, centers, parent_lambda = nothing, parent_groups=nothing, lower=nothing, upper=nothing,  glbLB=-Inf)
-function getLowerBound_adptGp_LD(X, k, w_sos, assign, node = nothing, UB = Inf, mode = "fixed")
+function getLowerBound_adptGp_LD(X, k, w_sos, assign, node = nothing, UB = Inf, mode = "fixed", solver = "CPLEX", n_cuts = 5)
     parent_lambda = node.lambda # initial guess of the lambda
+    parent_centers = node.group_centers # initial guess of variable centers for each group
     parent_groups = node.groups 
     lower = node.lower
     upper = node.upper
     glbLB = node.LB
+    gp_cuts = node.group_cuts
     # first generate new grouping based the assignment of current centers
     #~, assign = obj_assign(centers, X); # if the center is ridiculous, then obj function can not get a good ub
     obj_ub = UB
     d, n = size(X);
+    ngroups = length(parent_groups)
     if mode == "fixed"
-        ngroups = length(parent_groups)
         groups = parent_groups
     else 
-        ngroups = round(Int, n/k/10); # determine the number of groups, 10*k points in each group, 5*k for large problems (d*k>10 or n>1500)
+        #ngroups = round(Int, n/k/10); # determine the number of groups, 10*k points in each group, 5*k for large problems (d*k>10 or n>1500)
         #ngroups = round(Int, n*d*k/150);
         groups = kmeans_group(X, assign, ngroups)
+        gp_cuts = nothing # if adaptive, cuts can not transitive
     end
 
     #println("groups:    ",groups)
     #println(length.(groups))
     # calculate the lower bound with largrangean decomposition
-    LB, lambda, group_centers= LD_2(X, d, k, ngroups, groups, obj_ub, w_sos, parent_lambda, lower, upper)
+    LB, lambda, group_centers, group_cuts= LD_2(X, d, k, ngroups, groups, obj_ub, gp_cuts, n_cuts, w_sos, parent_lambda, parent_centers, lower, upper, solver)
 
     # check if LB with new grouping lower than the LB of parent node
     if (LB < glbLB) && (mode != "fixed") #|| (LB > obj_ub) # if LB is smaller, than adopt the parent grouping
         groups = parent_groups
         # calculate the lower bound with largrangean decomposition
-        LB_n, lambda_n, group_centers_n = LD_2(X, d, k, ngroups, groups, obj_ub, w_sos, parent_lambda, lower, upper)
+        LB_n, lambda_n, group_centers_n, group_cuts_n = LD_2(X, d, k, ngroups, groups, obj_ub, gp_cuts, n_cuts, w_sos, parent_lambda, parent_centers, lower, upper, solver)
         if LB_n > LB   
             lambda = lambda_n
             group_centers = group_centers_n
+            group_cuts = group_cuts_n
             LB = LB_n
         end
     end
-    return LB, groups, lambda, group_centers
+    return LB, groups, lambda, group_centers, group_cuts
 end
 
 

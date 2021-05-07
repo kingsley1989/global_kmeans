@@ -3,16 +3,24 @@ module obbt
 using Clustering
 using Printf
 using JuMP
-using Ipopt, CPLEX#, SCIP
+using Ipopt, CPLEX, Gurobi#, SCIP
 using Random
-using opt_functions
+#using opt_functions
+
+using Distributed, SharedArrays
+#@everywhere using opt_functions
+
+#using grb_env
+
+@everywhere using opt_functions
 
 export OBBT_min, OBBT_max
 
-time_lapse = 180 # 10 mins
+# time_lapse = 60 # 1 mins
+
 
 # nlines represents 2*nlines lines added as the outer approximation for the problem
-function OBBT_min(X, k, UB, w_sos, lower=nothing, upper=nothing, mute=false, nlines = 1)
+function OBBT_min(X, k, UB, w_sos, lower=nothing, upper=nothing, mute=false, nlines = 1, solver="CPLEX")
     d, n = size(X)
     lower, upper = opt_functions.init_bound(X, d, k, lower, upper)
     dmat_max = opt_functions.max_dist(X, d, k, n, lower, upper)  
@@ -20,58 +28,42 @@ function OBBT_min(X, k, UB, w_sos, lower=nothing, upper=nothing, mute=false, nli
     lwr_center = zeros(d,k) # initialize the lower bound of center
     println("Start OBBT(minimum) process:")
     # for each dimension and cluster, we have a variable to solve
-    for dim in 1:d
-        for clst in 1:k
-            println("Solving the minimum bound of variable: centers[$dim, $clst].")
-            m = Model(CPLEX.Optimizer);
-            if mute
-                set_optimizer_attribute(m, "CPX_PARAM_SCRIND", 0)
-            end
-	        set_optimizer_attribute(m, "CPX_PARAM_THREADS",1)
-            set_optimizer_attribute(m, "CPX_PARAM_TILIM", time_lapse) # maximum runtime limit is 10 mins
-            @variable(m, lower[t,i] <= centers[t in 1:d, i in 1:k] <= upper[t,i], start=rand());
-            @constraint(m, [j in 1:k-1], centers[1,j]<= centers[1,j+1])
+    if nprocs() == 1
+        for dim in 1:d
+            for clst in 1:k
+                println("Solving the minimum bound of variable: centers[$dim, $clst].")
+                
+                opt_val = opt_functions.obbt_OPT(X, k, d, n, UB, w_sos, dmat_max, lower, upper, mute, nlines, solver, "min", dim, clst) 
+                #println(result_count(m))
+                if opt_val > lower[dim, clst]
+                    lwr_center[dim, clst] = opt_val
+                else
+                    lwr_center[dim, clst] = lower[dim, clst]
+                    println("No better bound found.")
+                end
+                #=
+                ~, sol, ~ = opt_functions.global_OPT_oa(X, k, UB, w_sos, lower, upper, mute, 3, time_lapse, solver, "min", dim, clst)
+                if sol > lower[dim, clst]
+                    lwr_center[dim, clst] = sol
+                else    
+                    lwr_center[dim, clst] = lower[dim, clst]
+                    println("No better bound found.")
+                end
+                =#
 
-            @variable(m, 0<=dmat[i in 1:k, j in 1:n]<=dmat_max[i,j], start=rand());
-            #@variable(m, lower[t,i]^2 <= w[t in 1:d, i in 1:k] <= upper[t,i]^2) # add the horizontal line of the lower bottom line bound 
-            @variable(m, 0 <= w[t in 1:d, i in 1:k], start=rand()) # add the horizontal line of the lower bottom line bound 
-            @constraint(m, [i in 1:k, j in 1:n], dmat[i,j] >= sum((X[t,j]^2 - 2*X[t,j]*centers[t,i] + w[t,i]) for t in 1:d ));
-            itval = (upper-lower)./2/nlines # total 2*nlines, separate the range into 2*nlines sections
-            for line in 0:(nlines-1)
-                lwr = lower+itval.*line
-                upr = upper-itval.*line
-                @constraint(m, [t in 1:d, i in 1:k], 2*lwr[t,i]*centers[t,i]-lwr[t,i]^2 <= w[t,i])
-                @constraint(m, [t in 1:d, i in 1:k], 2*upr[t,i]*centers[t,i]-upr[t,i]^2 <= w[t,i])
-            end
-            # add constraint for upper bound of w, may not necessary
-            # @constraint(m, [t in 1:d, i in 1:k], w[t,i] <= (upper[t,i]+lower[t,i])*centers[t,i]-upper[t,i]*lower[t,i])
-
-            @variable(m, b[1:k, 1:n], Bin)
-            @constraint(m, [j in 1:n], sum(b[i,j] for i in 1:k) == 1);
-            @constraint(m, [j in 1:n], b[:,j] in MOI.SOS1(w_sos[:,j]))
-
-            @variable(m, costs[1:n]>=0, start=rand());
-            @constraint(m, [i in 1:k, j in 1:n], costs[j] - dmat[i,j] >= -dmat_max[i,j]*(1-b[i,j]))
-            @constraint(m, [i in 1:k, j in 1:n], costs[j] - dmat[i,j] <= dmat_max[i,j]*(1-b[i,j]))
-            @constraint(m, sum(costs[j] for j in 1:n)<= UB) # add the constraint that the total cost should lower than current UB
-
-            @objective(m, Min, centers[dim, clst]);
-            optimize!(m);
-            #println(result_count(m))
-            if result_count(m) >= 1
-                lwr_center[dim, clst] = getobjectivevalue(m)
-            else    
-                lwr_center[dim, clst] = lower[dim, clst]
-                println("No feasible solution found.")
             end
         end
+    else
+        obbt_lwr = pmap(set -> opt_functions.obbt_OPT(X, k, d, n, UB, w_sos, dmat_max, lower, upper, 
+                                    mute, nlines, solver, "min", set[1], set[2]), [(x,y) for x in 1:d, y in 1:k])
+        lwr_center = max.(lower, obbt_lwr) # getindex.(rlt_obbt, 2)
     end
 
     return lwr_center
 end
 
 
-function OBBT_max(X, k, UB, w_sos, lower=nothing, upper=nothing, mute=false, nlines = 1)
+function OBBT_max(X, k, UB, w_sos, lower=nothing, upper=nothing, mute=false, nlines = 1, solver="CPLEX")
     d, n = size(X)
     lower, upper = opt_functions.init_bound(X, d, k, lower, upper)
     dmat_max = opt_functions.max_dist(X, d, k, n, lower, upper)
@@ -79,51 +71,35 @@ function OBBT_max(X, k, UB, w_sos, lower=nothing, upper=nothing, mute=false, nli
     upr_center = zeros(d,k) # initialize the lower bound of center
     println("Start OBBT(maximum) process:")
     # for each dimension and cluster, we have a variable to solve
-    for dim in 1:d
-        for clst in 1:k
-            println("Solving the maximum bound of variable: centers[$dim, $clst].")
-            m = Model(CPLEX.Optimizer);
-            if mute
-                set_optimizer_attribute(m, "CPX_PARAM_SCRIND", 0)
-            end
-	        set_optimizer_attribute(m, "CPX_PARAM_THREADS",1)
-            set_optimizer_attribute(m, "CPX_PARAM_TILIM", time_lapse) # maximum runtime limit is 10 mins
-            @variable(m, lower[t,i] <= centers[t in 1:d, i in 1:k] <= upper[t,i], start=rand());
-            @constraint(m, [j in 1:k-1], centers[1,j]<= centers[1,j+1])
+    if nprocs() == 1
+        for dim in 1:d
+            for clst in 1:k
+                println("Solving the maximum bound of variable: centers[$dim, $clst].")
+                
+                opt_val = opt_functions.obbt_OPT(X, k, d, n, UB, w_sos, dmat_max, lower, upper, mute, nlines, solver, "max", dim, clst) 
+                # println(result_count(m))
+                if opt_val < upper[dim, clst]
+                    upr_center[dim, clst] = opt_val
+                else    
+                    upr_center[dim, clst] = upper[dim, clst]
+                    println("No better bound found.")
+                end
+                #=
+                ~, LB, ~ = opt_functions.global_OPT_oa(X, k, UB, w_sos, lower, upper, mute, 3, solver, "max", dim, clst)
+                if LB < upper[dim, clst]
+                    upr_center[dim, clst] = LB
+                else    
+                    upr_center[dim, clst] = upper[dim, clst]
+                    println("No better bound found.")
+                end
+                =#
 
-            @variable(m, 0<=dmat[i in 1:k, j in 1:n]<=dmat_max[i,j], start=rand());
-            #@variable(m, lower[t,i]^2 <= w[t in 1:d, i in 1:k] <= upper[t,i]^2) # add the horizontal line of the lower bottom line bound 
-            @variable(m, 0 <= w[t in 1:d, i in 1:k], start=rand()) # add the horizontal line of the lower bottom line bound
-            @constraint(m, [i in 1:k, j in 1:n], dmat[i,j] >= sum((X[t,j]^2 - 2*X[t,j]*centers[t,i] + w[t,i]) for t in 1:d ));
-            itval = (upper-lower)./2/nlines # total 2*nlines, separate the range into 2*nlines sections
-            for line in 0:(nlines-1)
-                lwr = lower+itval.*line
-                upr = upper-itval.*line
-                @constraint(m, [t in 1:d, i in 1:k], 2*lwr[t,i]*centers[t,i]-lwr[t,i]^2 <= w[t,i])
-                @constraint(m, [t in 1:d, i in 1:k], 2*upr[t,i]*centers[t,i]-upr[t,i]^2 <= w[t,i])
-            end
-            # add constraint for upper bound of w, may not necessary
-            # @constraint(m, [t in 1:d, i in 1:k], w[t,i] <= (upper[t,i]+lower[t,i])*centers[t,i]-upper[t,i]*lower[t,i])
-
-            @variable(m, b[1:k, 1:n], Bin)
-            @constraint(m, [j in 1:n], sum(b[i,j] for i in 1:k) == 1);
-            @constraint(m, [j in 1:n], b[:,j] in MOI.SOS1(w_sos[:,j]))
-
-            @variable(m, costs[1:n]>=0, start=rand());
-            @constraint(m, [i in 1:k, j in 1:n], costs[j] - dmat[i,j] >= -dmat_max[i,j]*(1-b[i,j]))
-            @constraint(m, [i in 1:k, j in 1:n], costs[j] - dmat[i,j] <= dmat_max[i,j]*(1-b[i,j]))
-            @constraint(m, sum(costs[j] for j in 1:n)<= UB) # add the constraint that the total cost should lower than current UB
-
-            @objective(m, Max, centers[dim, clst]);
-            optimize!(m);
-            # println(result_count(m))
-            if result_count(m) >= 1
-                upr_center[dim, clst] = getobjectivevalue(m)
-            else    
-                upr_center[dim, clst] = upper[dim, clst]
-                println("No feasible solution found.")
             end
         end
+    else
+        obbt_upr = pmap(set -> opt_functions.obbt_OPT(X, k, d, n, UB, w_sos, dmat_max, lower, upper, 
+                                    mute, nlines, solver, "max", set[1], set[2]), [(x,y) for x in 1:d, y in 1:k])
+        upr_center = min.(upper, obbt_upr) # getindex.(rlt_obbt, 2)
     end
 
     return upr_center
