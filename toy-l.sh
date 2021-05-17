@@ -1,7 +1,7 @@
 #! /bin/bash
-#SBATCH --nodes=2
-#SBATCH -t 0-06:30
-#SBATCH --array=350,500
+#SBATCH --nodes=20
+#SBATCH -t 0-16:30
+#SBATCH --array=1000
 #SBATCH --output=info-%x-%a.out
 
 cd ${SLURM_SUBMIT_DIR}

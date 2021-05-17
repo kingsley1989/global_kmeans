@@ -15,7 +15,7 @@ export branch_bound
 maxiter = 5000000
 tol = 1e-6
 mingap = 1e-3
-time_lapse = 4*3600 # 4 hours
+time_lapse = 12*3600 # 4 hours
 
 
 # function to record the finish time point

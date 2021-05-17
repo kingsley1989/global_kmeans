@@ -1,6 +1,6 @@
 #! /bin/bash
-#SBATCH --nodes=3
-#SBATCH -t 0-06:30
+#SBATCH --nodes=10
+#SBATCH -t 0-16:30
 #SBATCH --array=0-3
 #SBATCH --output=info-%x-%a.out
 

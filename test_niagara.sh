@@ -40,7 +40,7 @@ done
 echo "Test problem with $2 clusters." > rlt-$1-$2-$3-$4-$5.out
 echo -e "Datasets\tTime\tGap\tIter\n" >> rlt-$1-$2-$3-$4-$5.out
 
-for file in `find . -type f -iname "real-$5*.out" `
+for file in `find . -type f -iname "real-$5-*.out" `
 do
     if [ -f "$file" ]
     then 
@@ -49,7 +49,7 @@ do
     fi
 done
 
-for file in `find . -type f -iname "toy-$5*.out" `
+for file in `find . -type f -iname "toy-$5-*.out" `
 do
     if [ -f "$file" ]
     then 
