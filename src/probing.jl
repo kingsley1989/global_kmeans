@@ -11,7 +11,7 @@ function probing_base(X, k, centers, lower_o, upper_o, UB, mingap)
     d, n = size(X)
 
     fathom = false
-    node_LB =lb_functions.getLowerBound_analytic(X, k, lower, upper)
+    node_LB, ~ =lb_functions.getLowerBound_analytic(X, k, lower, upper)
     if (UB-node_LB)<= mingap || (UB-node_LB) <= mingap*min(abs(node_LB), abs(UB))
             println("analytic LB  ",node_LB, "   >=UB    ", UB)
 	    fathom = true 	    
@@ -41,7 +41,7 @@ function probing_base(X, k, centers, lower_o, upper_o, UB, mingap)
                         end
                     end
                     
-                    LB_trial =lb_functions.getLowerBound_analytic(X, k, lower_trial, upper_trial)
+                    LB_trial, ~ =lb_functions.getLowerBound_analytic(X, k, lower_trial, upper_trial)
                     if (UB-LB_trial)<= mingap || (UB-LB_trial) <= mingap*abs(UB)
                         println(trial, "  lower[ ",dim, ",",  clst,"]  from", lower[dim, clst], "  to ", upper_trial[dim, clst])
                         lower[dim, clst] = upper_trial[dim, clst] 
@@ -67,7 +67,7 @@ function probing_base(X, k, centers, lower_o, upper_o, UB, mingap)
                             end
                         end
                     end
-                    LB_trial = lb_functions.getLowerBound_analytic(X, k, lower_trial, upper_trial)
+                    LB_trial, ~ = lb_functions.getLowerBound_analytic(X, k, lower_trial, upper_trial)
 
                     if (UB-LB_trial)<= mingap || (UB-LB_trial) <= mingap*abs(UB)
                         println(trial, "  upper[ ",dim, ",",  clst,"]  from", upper[dim, clst], "  to ",	lower_trial[dim, clst])
@@ -83,7 +83,7 @@ function probing_base(X, k, centers, lower_o, upper_o, UB, mingap)
                 end
 
                 if (upper[dim, clst] - lower[dim, clst]) <= (step+1e-6)
-                    node_LB =lb_functions.getLowerBound_analytic(X, k, lower, upper)
+                    node_LB, ~ =lb_functions.getLowerBound_analytic(X, k, lower, upper)
                     if (UB-node_LB)<= mingap || (UB-node_LB) <= mingap*abs(UB)
                         println("analytic LB  ",node_LB, "   >=UB    ", UB)
                         fathom = true

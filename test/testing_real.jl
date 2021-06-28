@@ -45,11 +45,35 @@ label = vec(label)
 k = parse(Int, ARGS[2]) #length(unique(label))
 Random.seed!(123)
 
+t_adp_LD = @elapsed centers_adp_LD, objv_adp_LD, calcInfo_adp_LD = bb_functions.branch_bound(data, k, ARGS[5], "fixed", "SOS1", ARGS[4], "CPLEX") #
+println("$dataname:\t",  
+        round(objv_adp_LD, digits=2), "\t",
+        round(t_adp_LD, digits=2), "\t", 
+        round(calcInfo_adp_LD[end][end]*100, digits=4), "%\t", 
+        calcInfo_adp_LD[end][end] <= 0.001 ? length(calcInfo_adp_LD)-1 : length(calcInfo_adp_LD))
 
 
-t_adp_LD = @elapsed centers_adp_LD, objv_adp_LD, calcInfo_adp_LD = bb_functions.branch_bound(data, k, "LD+adaGp", "fixed", "SOS1", ARGS[4], ARGS[5]) #
-println("$dataname:\t",  round(t_adp_LD, digits=2), "\t", round(calcInfo_adp_LD[end][end]*100, digits=4), "%\t", 
-    calcInfo_adp_LD[end][end] <= 0.001 ? length(calcInfo_adp_LD)-1 : length(calcInfo_adp_LD))
+t_g = @elapsed centers_g, objv_g, iter_g, gap_g = global_OPT_base(data, k)
+println("$dataname:\t",  round(objv_g, digits=2), "\t", round(t_g, digits=2), "\t", 
+        round(gap_g, digits=4), "%\t", iter_g)
 
+#=
+# kmeans results for comparison
+Random.seed!(0)
+trail = 100
+nmi_km_list = []
+objv_km_list = []
+for i = 1:trail
+    t_km = @elapsed rlt_km = kmeans(data, k)
+    nmi_km, ~, ~ = cluster_eval(rlt_km.assignments, label)
+    push!(nmi_km_list, nmi_km)
+    push!(objv_km_list, rlt_km.totalcost)
+end
+nmi_km_mean = mean(nmi_km_list)
+objv_km_mean = mean(objv_km_list)
+objv_km_max, nmi_km_max = findmax(objv_km_list)
+objv_km_min, nmi_km_min = findmin(objv_km_list)
+println([nmi_km_list[nmi_km_max] nmi_km_mean nmi_km_list[nmi_km_min]; objv_km_max objv_km_mean objv_km_min])
 
+=#
 rmprocs(procs()[2:nprocs()])

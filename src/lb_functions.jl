@@ -1,11 +1,12 @@
 module lb_functions
 
 using Random, Distributions
-using LinearAlgebra
+using LinearAlgebra, Statistics
 using MLDataUtils, Clustering #, MLBase
 #using opt_functions
 
 using Distributed, SharedArrays
+@everywhere using ParallelDataTransfer
 @everywhere using opt_functions
 
 export getLowerBound_adptGp_LD, getGlobalLowerBound
@@ -47,10 +48,12 @@ function getLowerBound_analytic(X, k, lower=nothing, upper=nothing)
     # get the mid value of each mu for each cluster
     # start calculating the lower bound (distance of x_s to its closest mu)
     LB = 0
+    centers_gp = rand(d, k, n)
     for s in 1:n
         # the way median is precalculated is faster 
         x_mat = repeat(X[:,s], 1, k)
-        mu = med.(lower[:,:], x_mat[:,:], upper[:,:])
+        mu = med.(lower[:,:], x_mat[:,:], upper[:,:]) # solution for each scenario
+        centers_gp[:,:,s] = mu
         min_dist = Inf
         for i in 1:k
             dist = sum((X[t,s] - mu[t,i])^2 for t in 1:d)
@@ -60,7 +63,7 @@ function getLowerBound_analytic(X, k, lower=nothing, upper=nothing)
         end
         LB += min_dist
     end
-    return LB
+    return LB, centers_gp
 end
 
 
@@ -162,6 +165,8 @@ function LD_2(X, d, k, ngroups, groups, qUB, cuts_init=nothing, max_cuts = 5, w_
                 end
             end
         else
+            #sendto(workers(), centers_init = centers_init)
+            #sendto(workers(), lambda = lambda)
             if cuts_init === nothing # if adaptive, no cuts added
                 rlt_gp = pmap(i -> opt_functions.global_OPT3_LD(X[:,groups[i]], k, 
                             lambda[:,:,i:(i+1)], centers_init[:,:,i], nothing, w_sos, lower, upper, true, solver), 1:ngroups)
@@ -192,7 +197,7 @@ function LD_2(X, d, k, ngroups, groups, qUB, cuts_init=nothing, max_cuts = 5, w_
                 trial_no_improve = 0
             end 
             maxLB = LB
-            group_centers = centers_gp 
+            group_centers = copy(centers_gp) 
             #group_cuts = cuts
             if (qUB-LB)<= mingap || (qUB-LB) <= mingap*abs(qUB)
                 println(LB)
@@ -231,7 +236,49 @@ function LD_2(X, d, k, ngroups, groups, qUB, cuts_init=nothing, max_cuts = 5, w_
     return max(0, maxLB), lambda, group_centers, cuts
 end
 
-
+# cuts is a 2-element array, 1st is the group LB and 2nd is the corresponding lambda for each cut
+function GP(X, d, k, ngroups, groups, qUB, cuts_init=nothing, max_cuts = 5, w_sos=nothing, lambda=nothing, centers_init = nothing, lower=nothing, upper=nothing, solver="CPLEX")
+    ncores = nprocs() 	 
+    if lambda === nothing # no LD, lambda always zero 
+        lambda = zeros(d, k, ngroups+1) # d*k*(g+1) initialize lambda with 0
+    end
+    println(norm(lambda, 2))
+    centers_gp = rand(d, k, ngroups) # zeros(d, k, ngroups) # initial var to save centers for each group
+    LB_gp = zeros(1, ngroups) # initial group lb value
+    # lambda dimensions: d*k*(ngroups+1) [0-ngroups]
+    # lambda[:,:,1] --> lambda_0, lambda[:,:,ng+1] --> lambda_ng, both are 0 here.
+    if centers_init === nothing
+        centers_init = copy(centers_gp) # rand(d, k, ngroups) # donot use copy to save the memory
+    end
+    if ncores == 1
+        LB = 0
+        for i = 1:ngroups
+            # assign is not necessary
+            print("=")  
+            centers, objv = opt_functions.global_OPT3_LD(X[:,groups[i]], k, 
+                        lambda[:,:,i:(i+1)], centers_init[:,:,i], nothing, w_sos, lower, upper, true, solver);
+            LB_gp[i] = objv # update cuts info: opt lb value
+            centers_gp[:,:,i] = centers; # i for groups and centers are corresponding to i+1 of lambda
+            LB += objv;
+            #println("group    ", i, "   objv:   ", objv, "     ",LB)
+        end
+    else
+        #sendto(workers(), centers_init = centers_init)
+        #sendto(workers(), lambda = lambda)
+        rlt_gp = pmap(i -> opt_functions.global_OPT3_LD(X[:,groups[i]], k, 
+                    lambda[:,:,i:(i+1)], centers_init[:,:,i], nothing, w_sos, lower, upper, true, solver), 1:ngroups)
+        # group centers and group lower bound
+        for i in 1:length(rlt_gp)
+            centers_gp[:, :, i] = rlt_gp[i][1]
+            LB_gp[i] = rlt_gp[i][2] # update cuts info: opt value
+        end
+        # lower bound
+        LB = @distributed (+) for rlt in rlt_gp
+            rlt[2]
+        end
+    end
+    return LB, nothing, centers_gp, nothing
+end
 
 ############## auxilary functions for adaptive sub-grouping ##############
 
@@ -324,7 +371,7 @@ end
 ############## Lower bound calculation with adaptive sub-grouping and largrangean decomposition ##############
 # centers here only used to generate the weight of the SOS1
 #function getLowerBound_adptGp_LD(X, k, centers, parent_lambda = nothing, parent_groups=nothing, lower=nothing, upper=nothing,  glbLB=-Inf)
-function getLowerBound_adptGp_LD(X, k, w_sos, assign, node = nothing, UB = Inf, mode = "fixed", solver = "CPLEX", n_cuts = 5)
+function getLowerBound_adptGp_LD(X, k, w_sos, assign, node = nothing, UB = Inf, mode = "fixed", solver = "CPLEX", n_cuts = 5, LD = true)
     parent_lambda = node.lambda # initial guess of the lambda
     parent_centers = node.group_centers # initial guess of variable centers for each group
     parent_groups = node.groups 
@@ -346,10 +393,12 @@ function getLowerBound_adptGp_LD(X, k, w_sos, assign, node = nothing, UB = Inf, 
         gp_cuts = nothing # if adaptive, cuts can not transitive
     end
 
-    #println("groups:    ",groups)
-    #println(length.(groups))
-    # calculate the lower bound with largrangean decomposition
-    LB, lambda, group_centers, group_cuts= LD_2(X, d, k, ngroups, groups, obj_ub, gp_cuts, n_cuts, w_sos, parent_lambda, parent_centers, lower, upper, solver)
+    if LD
+        # calculate the lower bound with largrangean decomposition
+        LB, lambda, group_centers, group_cuts= LD_2(X, d, k, ngroups, groups, obj_ub, gp_cuts, n_cuts, w_sos, parent_lambda, parent_centers, lower, upper, solver)
+    else
+        LB, lambda, group_centers, group_cuts = GP(X, d, k, ngroups, groups, obj_ub, gp_cuts, n_cuts, w_sos, parent_lambda, parent_centers, lower, upper, solver)
+    end
 
     # check if LB with new grouping lower than the LB of parent node
     if (LB < glbLB) && (mode != "fixed") #|| (LB > obj_ub) # if LB is smaller, than adopt the parent grouping
@@ -363,6 +412,7 @@ function getLowerBound_adptGp_LD(X, k, w_sos, assign, node = nothing, UB = Inf, 
             LB = LB_n
         end
     end
+    GC.gc()
     return LB, groups, lambda, group_centers, group_cuts
 end
 

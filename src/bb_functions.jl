@@ -1,4 +1,3 @@
-
 module bb_functions
 
 using Clustering
@@ -8,6 +7,9 @@ using Ipopt, CPLEX, Gurobi#, SCIP
 using Random
 using Statistics
 
+using Distributed, SharedArrays
+@everywhere using ParallelDataTransfer
+
 using ub_functions, lb_functions, opt_functions, obbt, branch, probing, Nodes
 
 export branch_bound
@@ -15,7 +17,7 @@ export branch_bound
 maxiter = 5000000
 tol = 1e-6
 mingap = 1e-3
-time_lapse = 12*3600 # 4 hours
+time_lapse = 4*3600 # 4 hours
 
 
 # function to record the finish time point
@@ -34,13 +36,24 @@ function branch_bound(X, k, method = "SCEN", mode = "fixed", cons = "SOS1", cuts
     if log(10, med_x) > 4
         X = X/10^(floor(log(10, med_x))-3) 
     end=#
-    if minimum(X) < 0
-        X = X.+ minimum(X)
+    #=
+    x_min = minimum(X)
+    tnsf_min = false
+    if x_min < 0
+        tnsf_min = true
+        X = X.+ x_min
+    end=#
+    x_max = maximum(X) # max value after transfer to non-zero value
+    tnsf_max = false
+    if x_max >= 20
+        tnsf_max = true
+        X = X/(x_max*0.05)
     end
-    if maximum(X) >= 20
-        X = X/(maximum(X)*0.05)
+    #=
+    if (nprocs() > 1)
+        sendto(workers(), X=X)
     end
-    
+    =#
     d, n = size(X);
     #println(d, n)
     lower, upper = opt_functions.init_bound(X, d, k)
@@ -70,16 +83,12 @@ function branch_bound(X, k, method = "SCEN", mode = "fixed", cons = "SOS1", cuts
     #####inside main loop##################################
     calcInfo = [] # initial space to save calcuation information
     while nodeList!=[]
-        if (iter == maxiter) || (time_ns() >= end_time)
-           break
-        end
-        iter += 1
 
         # printNodeList(nodeList) # the printed LB of each node is the LB for its parent node
         # we start at the branch(node) with lowest Lower bound
 	    LB, nodeid = getGlobalLowerBound(nodeList) # Here the LB is the best LB and also node.LB of current iteration
         node = nodeList[nodeid]
-        level = node.level
+        #level = node.level
         groups = node.groups # the groups of this node is the grouping scheme of its parent node to get the LB
         deleteat!(nodeList, nodeid)
         # so currently, the global lower bound corresponding to node, LB = node.LB, groups = node.groups
@@ -88,6 +97,12 @@ function branch_bound(X, k, method = "SCEN", mode = "fixed", cons = "SOS1", cuts
         # println("upper\n",node.upper)
         # save calcuation information for result demostration
         push!(calcInfo, [iter, length(nodeList), node.level, LB, UB, (UB-LB)/min(abs(LB), abs(UB))])
+        
+        # time stamp should be checked after the retrival of the results
+        if (iter == maxiter) || (time_ns() >= end_time)
+            break
+        end
+        iter += 1
 
         ############# iteratively bound tightening #######################
         # node_LB = node.LB # seems useless
@@ -103,29 +118,34 @@ function branch_bound(X, k, method = "SCEN", mode = "fixed", cons = "SOS1", cuts
             else
                 w_sos = nothing
             end
-            # in root node, we can first genarate a grouping scheme based on best kmeans result
-            # generated the initial groups for subgrouping optimization
-            # in version of no-adaGP-bb function, groups information is not needed
-            # determine the number of groups, 162/d-k points in each group, guarantee that 162 variables in a subproblem
-            # however, the number of points in a group can not be too large,
-            # otherwise consume too much memory (out of memory) and calculation is too slow
-            if 162/d-k > 31 # set 31 so that d > 5 will not be affected
-                if n > 200
-                    ngroups = round(Int, n/25)
-                else
-                    ngroups = round(Int, n/31)
-                end
+            if (method == "LD") # if the method is only LD, then grouping is based on single samples
+                ngroups = n
+                groups = [[i] for i=1:ngroups]
             else
-                ngroups = round(Int, n/(162/d-k)) # round(Int, n/15); #
+                # in root node, we can first genarate a grouping scheme based on best kmeans result
+                # generated the initial groups for subgrouping optimization
+                # in version of no-adaGP-bb function, groups information is not needed
+                # determine the number of groups, 162/d-k points in each group, guarantee that 162 variables in a subproblem
+                # however, the number of points in a group can not be too large,
+                # otherwise consume too much memory (out of memory) and calculation is too slow
+                if 162/d-k > 31 # set 31 so that d > 5 will not be affected
+                    if n > 200
+                        ngroups = round(Int, n/20) # for pr2392 and toy-42000 use 20(k=3) and 15(k=4) as the divisor otherwise 25
+                    else
+                        ngroups = round(Int, n/31)
+                    end
+                else
+                    ngroups = round(Int, n/(162/d-k)) # round(Int, n/15); #
+                end
+                println(ngroups)
+                groups = lb_functions.kmeans_group(X, assign, ngroups)
             end
-            println(ngroups)
-            groups = lb_functions.kmeans_group(X, assign, ngroups)
-            # assign maybe can tansitive so that donot need to call obj_assign every time.
+            # assign can tansitive so that donot need to call obj_assign every time.
             #println(groups)
 
             # insert OBBT function here to tightening the range of each variable
-            lwr = OBBT_min(X, k, node_UB, w_sos, nothing, nothing, true, 2, solver) # lower # 
-            upr = OBBT_max(X, k, node_UB, w_sos, nothing, nothing, true, 2, solver) # upper # 
+            lwr = lower # OBBT_min(X, k, node_UB, w_sos, nothing, nothing, true, 2, solver) # 
+            upr = upper # OBBT_max(X, k, node_UB, w_sos, nothing, nothing, true, 2, solver) # upper # 
             # update node with lower, upper, groups
             node = Node(lwr, upr, node.level, node.LB, groups, node.lambda, nothing, nothing);
             
@@ -139,8 +159,14 @@ function branch_bound(X, k, method = "SCEN", mode = "fixed", cons = "SOS1", cuts
                 node = Node(lwr, upr, node.level, node_LB, groups, node.lambda, group_centers, group_cuts);
             end
         else
-            if (mode == "fixed") # if fixed, UB is the result of kmeans
-	            node_UB = UB	      
+            if (mode == "fixed") # if fixed, UB is the result of kmeans and the 
+                t_ctr = mean(node.group_centers, dims=3)[:,:,1]
+                t_UB, ~ = obj_assign(t_ctr, X)
+                if (t_UB < UB)
+                    node_UB = t_UB	      
+                else
+                    node_UB = UB	  
+                end    
             else # else adaptive grouping, use the center, assign of the local solver (mode=="adaLocal")
                 node_centers, node_assign, node_UB = ub_functions.getUpperBound(X, k, node.lower, node.upper, tol)
                 if ((node_UB-UB)/UB < 0.5) # using the solution from local solver if the objective is not too large (2*UB)
@@ -164,12 +190,14 @@ function branch_bound(X, k, method = "SCEN", mode = "fixed", cons = "SOS1", cuts
         end
         # println("LB:  ", LB)
 
-
+        node_LB = LB
+        #=
+        # probing method
     	lwr, upr, node_LB = probing_base(X, k, centers, node.lower, node.upper, UB, mingap);
         node = Node(lwr, upr, node.level, node.LB, node.groups, node.lambda, node.group_centers, node.group_cuts);
         println("node.lower after prob:  ", node.lower)
         println("node.upper after prob:  ", node.upper)
-
+        =#
 
         if (UB-node_LB)<= mingap || (UB-node_LB) <= mingap*min(abs(node_LB), abs(UB))
             println("analytic LB  ",node_LB, "   >=UB    ", UB)
@@ -177,18 +205,17 @@ function branch_bound(X, k, method = "SCEN", mode = "fixed", cons = "SOS1", cuts
             # The node may has lb value smaller than the global lb, it is not good but is possible if we have the subgroupping
             if (method == "Test")
                 node_LB = lb_functions.getLowerBound_Test(X, k, centers, node.lower, node.upper) # getLowerBound_clust
-            elseif (method == "LD")
-                node_LB = lb_functions.getLowerBound_LD(X, k, centers, node.lower, node.upper) 
             elseif (method == "adaGp")
                 # iThe node may has lb value smaller than the global lb, it is not good but is possible if we have the subgroupping??
                 # put global LB as the input of the function to check whether subgroupping get the better lb
-                node_LB, groups = lb_functions.getLowerBound_adptGp(X, k, centers, groups, node.lower, node.upper, LB)
+                # node_LB, groups = lb_functions.getLowerBound_adptGp(X, k, centers, groups, node.lower, node.upper, LB)
+                node_LB, groups, ~, group_centers, ~ = lb_functions.getLowerBound_adptGp_LD(X, k, w_sos, assign, node, UB, mode, solver, n_cuts, false)
                 # update grouping scheme under current node. 
                 # This node is gonna split and its grouping should be saved as the parent groups for its children
                 # Therefore, every iteration, node will first have the grouping scheme of its parent node
                 # after lower bound calculation, groups will be updated to its current grouping scheme that get the current LB
-                node = Node(node.lower, node.upper, node.level, node.LB, groups, nothing, nothing)
-            elseif (method == "LD+adaGp")
+                node = Node(node.lower, node.upper, node.level, node.LB, groups, nothing, group_centers, nothing)
+            elseif (method == "LD+adaGp" || method == "LD")
                 node_LB, groups, lambda, group_centers, group_cuts= lb_functions.getLowerBound_adptGp_LD(X, k, w_sos, assign, node, UB, mode, solver, n_cuts)
                 if cuts == "lar"
                     #println(group_cuts)
@@ -199,8 +226,9 @@ function branch_bound(X, k, method = "SCEN", mode = "fixed", cons = "SOS1", cuts
                     node = Node(node.lower, node.upper, node.level, node.LB, groups, lambda, group_centers, nothing)
                 end
             elseif (method == "SCEN")
-                node_LB = lb_functions.getLowerBound_analytic(X, k, node.lower, node.upper) # getLowerBound with closed-form expression
+                node_LB, group_centers = lb_functions.getLowerBound_analytic(X, k, node.lower, node.upper) # getLowerBound with closed-form expression
                 # node_LB = lb_functions.getLowerBound_linear(X, k, node.lower, node.upper, 5) # getLowerBound with linearized constraints 
+                node = Node(node.lower, node.upper, node.level, node.LB, node.groups, node.lambda, group_centers, nothing)
             else    
                 node_LB = lb_functions.getLowerBound_oa(X, k, UB, node.lower, node.upper, 2) # getLowerBound with outer approximation 
             end
@@ -248,6 +276,14 @@ function branch_bound(X, k, method = "SCEN", mode = "fixed", cons = "SOS1", cuts
     
     #println("obbt lower: ", lwr)
     #println("obbt upper: ", upr)
+    
+    if tnsf_max
+        UB = UB .* (x_max*0.05)^2
+    end
+    #=
+    if tnsf_min
+        UB = UB .- x_min
+    end=#
     return centers, UB, calcInfo
 end
 

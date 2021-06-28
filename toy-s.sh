@@ -1,7 +1,7 @@
 #! /bin/bash
 #SBATCH --nodes=1
-#SBATCH -t 0-16:30
-#SBATCH --array=20,50,100 
+#SBATCH -t 0-6:30
+#SBATCH --array=1,4,7,140
 #SBATCH --output=info-%x-%a.out
 
 cd ${SLURM_SUBMIT_DIR}
@@ -16,7 +16,7 @@ module load gurobi/9.0.2
 #,10,50,100
 
 julia -e "using Colors; using Rmath"
-julia test/testing_toy.jl ${SLURM_NTASKS} ${CLUST_NUM} $((${SLURM_ARRAY_TASK_ID}*100)) ${LAR_CUT} ${SOLVER} > toy-s-${CLUST_NUM}-$((${SLURM_ARRAY_TASK_ID}*100)).out
+julia test/testing_toy.jl ${SLURM_NTASKS} ${CLUST_NUM} $((${SLURM_ARRAY_TASK_ID}*100)) ${LAR_CUT} ${SOLVER} > toy-s-${CLUST_NUM}-3-${SOLVER}-$((${SLURM_ARRAY_TASK_ID}*100)).out
 
 :<<EOF
     # input argument of julia

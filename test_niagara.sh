@@ -37,23 +37,23 @@ do
     squeue -u khua1989 > joblist.out
 done
 
-echo "Test problem with $2 clusters." > rlt-$1-$2-$3-$4-$5.out
-echo -e "Datasets\tTime\tGap\tIter\n" >> rlt-$1-$2-$3-$4-$5.out
+echo "Test problem with $2 clusters." > rlt-$1-$2-$3-$4-$5-$6.out
+echo -e "Datasets\tOpt\tTime\tGap\tIter\n" >> rlt-$1-$2-$3-$4-$5-$6.out
 
-for file in `find . -type f -iname "real-$5-*.out" `
+for file in `find . -type f -iname "real-$5-$2-$4*.out" `
 do
     if [ -f "$file" ]
     then 
-        tail -1 $file | head -n 1 >> rlt-$1-$2-$3-$4-$5.out
-        #tail -1 $file >> result-$1-$2-$5.out
+        #tail -1 $file | head -n 1 >> rlt-$1-$2-$3-$4-$5.out
+        tail -1 $file >> rlt-$1-$2-$3-$4-$5-$6.out
     fi
 done
 
-for file in `find . -type f -iname "toy-$5-*.out" `
+for file in `find . -type f -iname "toy-$5-$2-3-$4*.out" `
 do
     if [ -f "$file" ]
     then 
-        tail -1 $file | head -n 1 >> rlt-$1-$2-$3-$4-$5.out
-        #tail -1 $file >> result-$1-$2-$5.out
+        #tail -1 $file | head -n 1 >> rlt-$1-$2-$3-$4-$5.out
+        tail -1 $file >> rlt-$1-$2-$3-$4-$5-$6.out
     fi
 done

@@ -1,5 +1,5 @@
 #! /bin/bash
-#SBATCH --nodes=10
+#SBATCH --nodes=2
 #SBATCH -t 0-16:30
 #SBATCH --array=0-3
 #SBATCH --output=info-%x-%a.out
@@ -16,7 +16,7 @@ module load gurobi/9.0.2
 datasets=("spnet3D" "rng_agr" "rds_cnt" "rds")
 
 julia -e "using Colors; using Rmath"
-julia test/testing_real.jl ${SLURM_NTASKS} ${CLUST_NUM} ${datasets[${SLURM_ARRAY_TASK_ID}]} ${LAR_CUT} ${SOLVER} > real-l-${datasets[${SLURM_ARRAY_TASK_ID}]}.out
+julia test/testing_real.jl ${SLURM_NTASKS} ${CLUST_NUM} ${datasets[${SLURM_ARRAY_TASK_ID}]} ${LAR_CUT} ${SOLVER} > real-l-${CLUST_NUM}-${datasets[${SLURM_ARRAY_TASK_ID}]}.out
 
 :<<EOF
     # input argument of julia

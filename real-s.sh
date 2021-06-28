@@ -1,7 +1,7 @@
 #! /bin/bash
 #SBATCH --nodes=1
-#SBATCH -t 0-16:30
-#SBATCH --array=0-10
+#SBATCH -t 0-6:30
+#SBATCH --array=2,5,6,7,8
 #SBATCH --output=info-%x-%a.out
 
 cd ${SLURM_SUBMIT_DIR}
@@ -16,7 +16,7 @@ module load gurobi/9.0.2
 datasets=("body" "cncret" "glass" "gr202" "gr666" "hemi" "iris" "pr2392" "seeds" "u1060" "vowel")
 
 julia -e "using Colors; using Rmath"
-julia test/testing_real.jl ${SLURM_NTASKS} ${CLUST_NUM} ${datasets[${SLURM_ARRAY_TASK_ID}]} ${LAR_CUT} ${SOLVER} > real-s-${datasets[${SLURM_ARRAY_TASK_ID}]}.out
+julia test/testing_real.jl ${SLURM_NTASKS} ${CLUST_NUM} ${datasets[${SLURM_ARRAY_TASK_ID}]} ${LAR_CUT} ${SOLVER} > real-s-${CLUST_NUM}-${SOLVER}-${datasets[${SLURM_ARRAY_TASK_ID}]}.out
 
 :<<EOF
     # input argument of julia
