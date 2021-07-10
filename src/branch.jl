@@ -13,7 +13,7 @@ function SelectVarMaxRange(node)
 end
 
 function SelectVardMaxLBCenterRange(group_centers)
-    d, k, ngroups = size(group_centers)
+    d, k, ~ = size(group_centers)
     dif = zeros(d, k)
     for dim in 1:d
         for clst in 1:k
@@ -37,7 +37,7 @@ function branch!(X, nodeList, bVarIdx, bVarIdy, bValue, node, node_LB, k)
 	    end
     end
     if sum(lower.<=upper)==d*k
-    	left_node = Node(lower, upper, node.level+1, node_LB, node.groups, node.lambda, node.group_centers, node.group_cuts)
+    	left_node = Node(lower, upper, node.level+1, node_LB, node.groups, node.lambda, node.group_centers)
 	    push!(nodeList, left_node)
 	    # println("left_node:   ", lower, "   ",upper)
     end
@@ -51,7 +51,7 @@ function branch!(X, nodeList, bVarIdx, bVarIdy, bValue, node, node_LB, k)
 	    end
     end
     if sum(lower.<=upper)==d*k
-    	right_node = Node(lower, upper, node.level+1, node_LB, node.groups, node.lambda, node.group_centers, node.group_cuts)
+    	right_node = Node(lower, upper, node.level+1, node_LB, node.groups, node.lambda, node.group_centers)
     	push!(nodeList, right_node)
 	    # println("right_node:   ", lower,"   ",upper)
     end
