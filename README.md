@@ -33,5 +33,9 @@ seeds: https://archive.ics.uci.edu/ml/datasets/seeds
 all synthetic datasets are two-dimensional with three Gaussian distributed clusters. Please refer to testing_toy.jl line 46-53 for the detailed generation process. all datasets use the random seed 1.
 
 ## installation and testing
+Please refer to line 9-12 of testing_*.jl file for the meaning of each input parameter 
+```shell
 julia test/testing_toy.jl 1 3 50 CF
+
 julia test/testing_real.jl 1 3 iris CF
+```
