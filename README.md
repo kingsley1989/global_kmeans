@@ -1,5 +1,8 @@
 # global_kmeans
- The global branch and bound clustering algorithm for minimum sum-of-squares clustering (MSSC, kmeans-like objective) task.
+The global branch and bound clustering algorithm for minimum sum-of-squares clustering (MSSC, kmeans-like objective) task.
+
+## related paper
+[A Scalable Deterministic Global Optimization Algorithm for Clustering Problems](http://proceedings.mlr.press/v139/hua21a/hua21a.pdf) *Accepted ICML2021*
 
 ## source file list
 bb_functions.jl branch and bound functions.
