@@ -1,20 +1,37 @@
 # global_kmeans
- kmeans clustering with branch&bound global optimization
+ The global branch and bound clustering algorithm for minimum sum-of-squares clustering (MSSC, kmeans-like objective) task.
 
 ## source file list
-bb_functions.jl branch and bound functions
+bb_functions.jl branch and bound functions.
 
-lb_functions.jl lower bound calculation functions
+lb_functions.jl lower bound calculation functions.
 
-ub_functions.jl upper bound calculation functions
+ub_functions.jl upper bound calculation functions.
 
-opt_functions.jl local and global optimization functions
+opt_functions.jl local and global optimization functions.
 
-data_process.jl data preprocess and result evaluation and plotting functions
+data_process.jl data preprocess and result evaluation and plotting functions.
+
+branch.jl method for branching functions.
+
+Nodes.jl The Node struct of BB procedure.
 
 ## test file list
-codetest.jl testing file for lower bound calculation functions
+testing_toy.jl testing code for toy data. 
 
-testing_toy.jl testing code for toy data 
+testing_real.jl testing code for real-world data.
 
-testing_iris.jl testing code for dataset iris 
+## testing data info
+glass identification dataset: https://archive.ics.uci.edu/ml/datasets/glass+identification
+
+Hemicellulose: data batch hemicellulose hydrolysis of hardwood. Each of its data sample represents a reaction condition.
+
+pr2392: travel salesman location data, http://www.math.uwaterloo.ca/tsp/history/tspinfo/pr2392_info.html
+
+seeds: https://archive.ics.uci.edu/ml/datasets/seeds
+
+all synthetic datasets are two-dimensional with three Gaussian distributed clusters. Please refer to testing_toy.jl line 46-53 for the detailed generation process. all datasets use the random seed 1.
+
+## installation and testing
+julia test/testing_toy.jl 1 3 50 CF
+julia test/testing_real.jl 1 3 iris CF
